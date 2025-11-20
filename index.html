@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rentcars · Location de Voitures Premium</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Header will be loaded here -->
+  <div id="header-placeholder"></div>
+
+  <main>
+    <section class="hero" id="book">
+      <div class="container hero__grid">
+        <div class="hero__content">
+          <p class="eyebrow">Trouvez, réservez et louez une voiture facilement</p>
+          <h1>Conduisez la voiture de vos rêves en quelques minutes</h1>
+          <p class="hero__summary">
+            Où que vous soyez, Rentcars vous livre la voiture parfaite. Accédez à des milliers de véhicules premium avec des options de prise en charge et de retour flexibles.
+          </p>
+        </div>
+        <div class="hero__visual">
+          <div class="hero__glow"></div>
+          <img src="images/carhero.png" alt="Blue sports car">
+        </div>
+      </div>
+    </section>
+
+    <section class="section services" id="services">
+      <div class="container">
+        <p class="section-tag">Offres de location populaires</p>
+        <h2 class="section-title">Voitures sélectionnées pour chaque voyage</h2>
+        <div class="cards-grid cards-grid--4" id="vehicles-grid">
+          <!-- Vehicles will be loaded dynamically -->
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer will be loaded here -->
+  <div id="footer-placeholder"></div>
+
+  <script src="script/load-components.js"></script>
+  <script src="script/script.js"></script>
+</body>
+</html>
+

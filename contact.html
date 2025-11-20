@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact - Rentcars</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .contact-section {
+      padding: 4rem 0;
+      min-height: 60vh;
+    }
+    .contact-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+    .contact-container h1 {
+      font-size: 2.5rem;
+      margin-bottom: 2rem;
+      color: #1f2937;
+      text-align: center;
+    }
+    .contact-info {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      margin-bottom: 2rem;
+    }
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .contact-item:last-child {
+      border-bottom: none;
+    }
+    .contact-item i {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #2F9E44;
+      color: white;
+      border-radius: 50%;
+      font-size: 1.2rem;
+    }
+    .contact-item-content h3 {
+      margin: 0 0 0.25rem 0;
+      color: #1f2937;
+    }
+    .contact-item-content p {
+      margin: 0;
+      color: #6b7280;
+    }
+    .contact-item-content a {
+      color: #2F9E44;
+      text-decoration: none;
+    }
+    .contact-item-content a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header will be loaded here -->
+  <div id="header-placeholder"></div>
+
+  <main>
+    <section class="contact-section">
+      <div class="contact-container">
+        <h1>Contactez-nous</h1>
+        <div class="contact-info" id="contact-info">
+          <div class="loading" style="text-align: center; padding: 2rem;">Chargement des informations de contact...</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer will be loaded here -->
+  <div id="footer-placeholder"></div>
+
+  <script src="script/load-components.js"></script>
+  <script>
+    // Load contact information
+    async function loadContactInfo() {
+      try {
+        const response = await fetch('backend.php?action=contacts');
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+          const contacts = data.data.filter(c => c.is_active);
+          const contactInfo = document.getElementById('contact-info');
+          
+          if (contactInfo && contacts.length > 0) {
+            contactInfo.innerHTML = contacts.map(contact => {
+              const icon = contact.icon || getDefaultIcon(contact.contact_type);
+              let value = contact.value;
+              
+              if (contact.contact_type === 'phone') {
+                value = `<a href="tel:${contact.value}">${contact.value}</a>`;
+              } else if (contact.contact_type === 'email') {
+                value = `<a href="mailto:${contact.value}">${contact.value}</a>`;
+              } else if (contact.contact_type === 'address') {
+                value = contact.value;
+              } else {
+                value = `<a href="${contact.value}" target="_blank" rel="noopener noreferrer">${contact.value}</a>`;
+              }
+              
+              return `
+                <div class="contact-item">
+                  <i class="${icon}"></i>
+                  <div class="contact-item-content">
+                    <h3>${contact.label}</h3>
+                    <p>${value}</p>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          } else if (contactInfo) {
+            contactInfo.innerHTML = '<p style="text-align: center; color: #6b7280;">Aucune information de contact disponible.</p>';
+          }
+        }
+      } catch (error) {
+        console.error('Error loading contact info:', error);
+        const contactInfo = document.getElementById('contact-info');
+        if (contactInfo) {
+          contactInfo.innerHTML = '<p style="text-align: center; color: #ef4444;">Erreur lors du chargement des informations.</p>';
+        }
+      }
+    }
+    
+    function getDefaultIcon(type) {
+      const icons = {
+        'phone': 'fas fa-phone',
+        'email': 'fas fa-envelope',
+        'whatsapp': 'fab fa-whatsapp',
+        'facebook': 'fab fa-facebook',
+        'instagram': 'fab fa-instagram',
+        'twitter': 'fab fa-twitter',
+        'linkedin': 'fab fa-linkedin',
+        'youtube': 'fab fa-youtube',
+        'address': 'fas fa-map-marker-alt',
+        'website': 'fas fa-globe'
+      };
+      return icons[type] || 'fas fa-link';
+    }
+    
+    document.addEventListener('DOMContentLoaded', loadContactInfo);
+  </script>
+</body>
+</html>
+

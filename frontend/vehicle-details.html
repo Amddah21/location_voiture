@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Détails du véhicule - Rentcars</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/vehicle-details.css">
+</head>
+<body>
+  <!-- Header will be loaded here -->
+  <div id="header-placeholder"></div>
+
+  <main>
+    <!-- Loading State -->
+    <div id="loading-state" class="loading-container">
+      <div class="loading-spinner">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>Chargement des détails du véhicule...</p>
+      </div>
+    </div>
+
+    <!-- Vehicle Details -->
+    <div id="vehicle-details" class="vehicle-details-page" style="display: none;">
+      <!-- Hero Section with Image -->
+      <section class="vehicle-hero">
+        <div class="vehicle-image-container">
+          <img id="vehicle-main-image" src="" alt="Vehicle" class="vehicle-main-image">
+          <button class="image-fullscreen" onclick="openImageFullscreen()" aria-label="Voir en plein écran">
+            <i class="fas fa-expand"></i>
+          </button>
+        </div>
+      </section>
+
+      <!-- Details Section -->
+      <section class="vehicle-content">
+        <div class="container">
+          <div class="vehicle-details-grid">
+            <!-- Left Column: Main Info -->
+            <div class="vehicle-main-info">
+              <div class="breadcrumb">
+                <a href="index.html">Accueil</a>
+                <span>/</span>
+                <a href="index.html#services">Véhicules</a>
+                <span>/</span>
+                <span id="breadcrumb-name">Détails</span>
+              </div>
+
+              <h1 id="vehicle-name" class="vehicle-title"></h1>
+              
+              <div class="vehicle-rating">
+                <div class="rating-stars" id="rating-stars"></div>
+                <span class="rating-value" id="rating-value"></span>
+                <span class="review-count" id="review-count"></span>
+              </div>
+
+              <div class="vehicle-price-section">
+                <div class="price-main">
+                  <span class="price-amount" id="price-amount"></span>
+                  <span class="price-period">/ jour</span>
+                </div>
+                <p class="price-note">Prix final, taxes incluses</p>
+              </div>
+
+              <!-- Quick Specs -->
+              <div class="quick-specs">
+                <div class="spec-item">
+                  <i class="fas fa-users"></i>
+                  <div>
+                    <span class="spec-label">Passagers</span>
+                    <span class="spec-value" id="spec-passengers"></span>
+                  </div>
+                </div>
+                <div class="spec-item">
+                  <i class="fas fa-cog"></i>
+                  <div>
+                    <span class="spec-label">Transmission</span>
+                    <span class="spec-value" id="spec-transmission"></span>
+                  </div>
+                </div>
+                <div class="spec-item">
+                  <i class="fas fa-snowflake"></i>
+                  <div>
+                    <span class="spec-label">Climatisation</span>
+                    <span class="spec-value" id="spec-ac"></span>
+                  </div>
+                </div>
+                <div class="spec-item">
+                  <i class="fas fa-door-open"></i>
+                  <div>
+                    <span class="spec-label">Portes</span>
+                    <span class="spec-value" id="spec-doors"></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Description -->
+              <div class="vehicle-description">
+                <h2>Description</h2>
+                <p id="vehicle-description">Véhicule premium avec toutes les fonctionnalités modernes. Confort et performance garantis pour votre voyage.</p>
+              </div>
+
+              <!-- Features -->
+              <div class="vehicle-features">
+                <h2>Caractéristiques</h2>
+                <ul class="features-list" id="features-list">
+                  <!-- Features will be populated dynamically -->
+                </ul>
+              </div>
+            </div>
+
+            <!-- Right Column: Booking Card -->
+            <div class="vehicle-booking-card">
+              <div class="booking-card-sticky">
+                <div class="booking-card-header">
+                  <h3>Réserver ce véhicule</h3>
+                  <div class="availability-badge" id="availability-badge">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Disponible</span>
+                  </div>
+                </div>
+
+                <form id="booking-form" class="booking-form">
+                  <div class="form-group">
+                    <label for="pickup-location">
+                      <i class="fas fa-map-marker-alt"></i>
+                      Lieu de prise en charge
+                    </label>
+                    <input type="text" id="pickup-location" name="pickup_location" placeholder="Entrez votre adresse" required>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="pickup-date">
+                        <i class="fas fa-calendar-alt"></i>
+                        Date de prise en charge
+                      </label>
+                      <input type="datetime-local" id="pickup-date" name="pickup_date" required>
+                    </div>
+                    <div class="form-group">
+                      <label for="return-date">
+                        <i class="fas fa-calendar-check"></i>
+                        Date de retour
+                      </label>
+                      <input type="datetime-local" id="return-date" name="return_date" required>
+                    </div>
+                  </div>
+
+                  <div class="booking-summary">
+                    <div class="summary-row">
+                      <span>Prix par jour</span>
+                      <span id="summary-price-day"></span>
+                    </div>
+                    <div class="summary-row">
+                      <span>Nombre de jours</span>
+                      <span id="summary-days">-</span>
+                    </div>
+                    <div class="summary-divider"></div>
+                    <div class="summary-row total">
+                      <span>Total</span>
+                      <span id="summary-total">-</span>
+                    </div>
+                  </div>
+
+                  <button type="submit" class="btn-book-now">
+                    <i class="fas fa-calendar-check"></i>
+                    Réserver maintenant
+                  </button>
+
+                  <p class="booking-note">
+                    <i class="fas fa-shield-alt"></i>
+                    Réservation sécurisée et annulation gratuite
+                  </p>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Similar Vehicles -->
+      <section class="similar-vehicles">
+        <div class="container">
+          <h2>Véhicules similaires</h2>
+          <div class="vehicles-grid" id="similar-vehicles-grid">
+            <!-- Similar vehicles will be loaded here -->
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Error State -->
+    <div id="error-state" class="error-container" style="display: none;">
+      <div class="error-content">
+        <i class="fas fa-exclamation-triangle"></i>
+        <h2>Véhicule non trouvé</h2>
+        <p>Le véhicule que vous recherchez n'existe pas ou n'est plus disponible.</p>
+        <a href="index.html" class="btn-primary">Retour à l'accueil</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer will be loaded here -->
+  <div id="footer-placeholder"></div>
+
+  <!-- Image Fullscreen Modal -->
+  <div id="image-modal" class="image-modal" onclick="closeImageFullscreen()">
+    <span class="modal-close">&times;</span>
+    <img id="modal-image" src="" alt="Vehicle fullscreen">
+  </div>
+
+  <script src="js/load-components.js"></script>
+  <script src="js/vehicle-details.js"></script>
+</body>
+</html>
+

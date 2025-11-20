@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmation de Réservation - Rentcars</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .confirmation-container {
+            max-width: 800px;
+            margin: 4rem auto;
+            padding: 2rem;
+        }
+
+        .confirmation-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .confirmation-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #2F9E44 0%, #41B883 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            animation: scaleIn 0.5s ease;
+        }
+
+        .success-icon i {
+            font-size: 2.5rem;
+            color: white;
+        }
+
+        @keyframes scaleIn {
+            from {
+                transform: scale(0);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .confirmation-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+
+        .confirmation-subtitle {
+            color: #6b7280;
+            font-size: 1.1rem;
+        }
+
+        .booking-details {
+            margin-bottom: 2rem;
+        }
+
+        .detail-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .detail-section h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .detail-section h3 i {
+            color: #2F9E44;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .detail-item {
+            background: #f9fafb;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 3px solid #2F9E44;
+        }
+
+        .detail-item label {
+            display: block;
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-bottom: 0.25rem;
+            font-weight: 500;
+        }
+
+        .detail-item .value {
+            font-size: 1rem;
+            color: #1f2937;
+            font-weight: 600;
+        }
+
+        .booking-reference {
+            background: linear-gradient(135deg, #2F9E44 0%, #41B883 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .booking-reference label {
+            display: block;
+            font-size: 0.875rem;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+        }
+
+        .booking-reference .reference-number {
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .contact-section {
+            background: #f0fdf4;
+            border: 2px solid #2F9E44;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .contact-section h3 {
+            color: #2F9E44;
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .contact-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .contact-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .contact-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .contact-card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .contact-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            color: white;
+        }
+
+        .contact-icon.phone {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+
+        .contact-icon.email {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+
+        .contact-icon.whatsapp {
+            background: linear-gradient(135deg, #25D366 0%, #20BA5A 100%);
+        }
+
+        .contact-card h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0;
+        }
+
+        .contact-card a {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #2F9E44;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 0.5rem;
+            transition: color 0.2s ease;
+        }
+
+        .contact-card a:hover {
+            color: #41B883;
+        }
+
+        .next-steps {
+            background: #fff7ed;
+            border-left: 4px solid #f59e0b;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .next-steps h3 {
+            color: #f59e0b;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .next-steps ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .next-steps li {
+            padding: 0.75rem 0;
+            padding-left: 2rem;
+            position: relative;
+            color: #78350f;
+        }
+
+        .next-steps li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #f59e0b;
+            font-weight: bold;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #2F9E44 0%, #41B883 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(47, 158, 68, 0.3);
+        }
+
+        .btn-outline {
+            background: white;
+            color: #2F9E44;
+            border: 2px solid #2F9E44;
+        }
+
+        .btn-outline:hover {
+            background: #2F9E44;
+            color: white;
+        }
+
+        .loading-state {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #2F9E44;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .confirmation-container {
+                margin: 2rem auto;
+                padding: 1rem;
+            }
+
+            .confirmation-card {
+                padding: 1.5rem;
+            }
+
+            .confirmation-title {
+                font-size: 1.5rem;
+            }
+
+            .detail-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .contact-info {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="header-placeholder"></div>
+
+    <main class="confirmation-container">
+        <div id="loading-state" class="loading-state">
+            <div class="spinner"></div>
+            <p>Chargement des détails de votre réservation...</p>
+        </div>
+
+        <div id="confirmation-content" style="display: none;">
+            <div class="confirmation-card">
+                <div class="confirmation-header">
+                    <div class="success-icon">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <h1 class="confirmation-title">Réservation Enregistrée !</h1>
+                    <p class="confirmation-subtitle">Votre demande de réservation a été reçue avec succès</p>
+                </div>
+
+                <div class="booking-reference">
+                    <label>Numéro de référence</label>
+                    <div class="reference-number" id="booking-reference">-</div>
+                </div>
+
+                <div class="booking-details">
+                    <div class="detail-section">
+                        <h3><i class="fas fa-car"></i> Détails du véhicule</h3>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <label>Véhicule</label>
+                                <div class="value" id="vehicle-name">-</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Prix par jour</label>
+                                <div class="value" id="price-per-day">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h3><i class="fas fa-calendar-alt"></i> Dates de location</h3>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <label>Date de prise en charge</label>
+                                <div class="value" id="pickup-date">-</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Date de retour</label>
+                                <div class="value" id="return-date">-</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Durée</label>
+                                <div class="value" id="duration">-</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Lieu de prise en charge</label>
+                                <div class="value" id="pickup-location">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h3><i class="fas fa-receipt"></i> Informations de paiement</h3>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <label>Prix total</label>
+                                <div class="value" id="total-price">-</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Statut</label>
+                                <div class="value">
+                                    <span style="background: #fef3c7; color: #92400e; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.875rem;">
+                                        En attente de confirmation
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="next-steps">
+                    <h3><i class="fas fa-info-circle"></i> Prochaines étapes</h3>
+                    <ul>
+                        <li>Notre équipe va examiner votre réservation</li>
+                        <li>Vous serez contacté dans les plus brefs délais pour confirmer votre réservation</li>
+                        <li>Vous recevrez un email de confirmation une fois la réservation validée</li>
+                        <li>N'hésitez pas à nous contacter si vous avez des questions</li>
+                    </ul>
+                </div>
+
+                <div class="contact-section">
+                    <h3><i class="fas fa-phone-alt"></i> Contactez-nous pour confirmer votre réservation</h3>
+                    <p style="color: #6b7280; margin-bottom: 1rem;">
+                        Pour accélérer le processus de confirmation, vous pouvez nous contacter directement :
+                    </p>
+                    <div class="contact-info" id="contact-info">
+                        <div class="loading">Chargement des informations de contact...</div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <a href="index.php" class="btn btn-outline">
+                        <i class="fas fa-home"></i>
+                        Retour à l'accueil
+                    </a>
+                    <button onclick="window.print()" class="btn btn-outline">
+                        <i class="fas fa-print"></i>
+                        Imprimer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="script/currency.js"></script>
+    <script src="script/load-components.js"></script>
+    <script>
+        const API_BASE = 'backend.php';
+
+        // Get booking ID from URL
+        function getBookingIdFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('id') || params.get('booking_id');
+        }
+
+        // Load booking details
+        async function loadBookingDetails() {
+            const bookingId = getBookingIdFromURL();
+            
+            if (!bookingId) {
+                showError('Numéro de réservation manquant');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}?action=bookings&id=${bookingId}`);
+                const data = await response.json();
+
+                if (data.success && data.data) {
+                    displayBookingDetails(data.data);
+                    loadContactInfo();
+                } else {
+                    showError('Réservation non trouvée');
+                }
+            } catch (error) {
+                console.error('Error loading booking:', error);
+                showError('Erreur lors du chargement de la réservation');
+            }
+        }
+
+        // Display booking details
+        function displayBookingDetails(booking) {
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('confirmation-content').style.display = 'block';
+
+            // Booking reference
+            document.getElementById('booking-reference').textContent = `#${booking.id}`;
+
+            // Vehicle details
+            document.getElementById('vehicle-name').textContent = booking.vehicle_name || 'N/A';
+            
+            // Calculate price per day
+            const pickupDate = new Date(booking.pickup_date);
+            const returnDate = new Date(booking.return_date);
+            const days = Math.ceil((returnDate - pickupDate) / (1000 * 60 * 60 * 24));
+            const pricePerDay = booking.total_price / days;
+            const pricePerDayFormatted = typeof window.formatPriceWithCurrency === 'function' 
+                ? window.formatPriceWithCurrency(pricePerDay)
+                : `${pricePerDay.toFixed(2)} €`;
+            document.getElementById('price-per-day').textContent = pricePerDayFormatted;
+
+            // Dates
+            document.getElementById('pickup-date').textContent = formatDateTime(booking.pickup_date);
+            document.getElementById('return-date').textContent = formatDateTime(booking.return_date);
+            document.getElementById('duration').textContent = `${days} jour${days > 1 ? 's' : ''}`;
+            document.getElementById('pickup-location').textContent = booking.pickup_location || '-';
+
+            // Total price
+            const totalPriceFormatted = typeof window.formatPriceWithCurrency === 'function' 
+                ? window.formatPriceWithCurrency(booking.total_price)
+                : `${parseFloat(booking.total_price).toFixed(2)} €`;
+            document.getElementById('total-price').textContent = totalPriceFormatted;
+        }
+
+        // Load contact information
+        async function loadContactInfo() {
+            try {
+                const response = await fetch(`${API_BASE}?action=contacts`);
+                const data = await response.json();
+
+                if (data.success && data.data) {
+                    displayContactInfo(data.data);
+                } else {
+                    document.getElementById('contact-info').innerHTML = 
+                        '<p style="color: #6b7280;">Informations de contact non disponibles</p>';
+                }
+            } catch (error) {
+                console.error('Error loading contacts:', error);
+                document.getElementById('contact-info').innerHTML = 
+                    '<p style="color: #6b7280;">Erreur lors du chargement des contacts</p>';
+            }
+        }
+
+        // Display contact information
+        function displayContactInfo(contacts) {
+            const contactInfo = document.getElementById('contact-info');
+            
+            if (contacts.length === 0) {
+                contactInfo.innerHTML = '<p style="color: #6b7280;">Aucune information de contact disponible</p>';
+                return;
+            }
+
+            // Filter and display phone, email, and whatsapp
+            const phoneContact = contacts.find(c => c.contact_type === 'phone' && c.is_active);
+            const emailContact = contacts.find(c => c.contact_type === 'email' && c.is_active);
+            const whatsappContact = contacts.find(c => c.contact_type === 'whatsapp' && c.is_active);
+
+            let html = '';
+
+            if (phoneContact) {
+                html += `
+                    <div class="contact-card">
+                        <div class="contact-card-header">
+                            <div class="contact-icon phone">
+                                <i class="fas fa-phone"></i>
+                            </div>
+                            <h4>Téléphone</h4>
+                        </div>
+                        <p style="color: #6b7280; margin: 0;">${escapeHtml(phoneContact.label)}</p>
+                        <a href="tel:${escapeHtml(phoneContact.value)}">
+                            <i class="fas fa-phone"></i>
+                            ${escapeHtml(phoneContact.value)}
+                        </a>
+                    </div>
+                `;
+            }
+
+            if (emailContact) {
+                html += `
+                    <div class="contact-card">
+                        <div class="contact-card-header">
+                            <div class="contact-icon email">
+                                <i class="fas fa-envelope"></i>
+                            </div>
+                            <h4>Email</h4>
+                        </div>
+                        <p style="color: #6b7280; margin: 0;">${escapeHtml(emailContact.label)}</p>
+                        <a href="mailto:${escapeHtml(emailContact.value)}">
+                            <i class="fas fa-envelope"></i>
+                            ${escapeHtml(emailContact.value)}
+                        </a>
+                    </div>
+                `;
+            }
+
+            if (whatsappContact) {
+                const cleanPhone = whatsappContact.value.replace(/[^\d]/g, '');
+                html += `
+                    <div class="contact-card">
+                        <div class="contact-card-header">
+                            <div class="contact-icon whatsapp">
+                                <i class="fab fa-whatsapp"></i>
+                            </div>
+                            <h4>WhatsApp</h4>
+                        </div>
+                        <p style="color: #6b7280; margin: 0;">${escapeHtml(whatsappContact.label)}</p>
+                        <a href="https://wa.me/${cleanPhone}" target="_blank">
+                            <i class="fab fa-whatsapp"></i>
+                            Contacter sur WhatsApp
+                        </a>
+                    </div>
+                `;
+            }
+
+            if (!html) {
+                html = '<p style="color: #6b7280;">Aucune information de contact disponible</p>';
+            }
+
+            contactInfo.innerHTML = html;
+        }
+
+        // Utility functions
+        function formatDateTime(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('fr-FR', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showError(message) {
+            document.getElementById('loading-state').innerHTML = `
+                <div style="text-align: center; padding: 2rem;">
+                    <i class="fas fa-exclamation-circle" style="font-size: 3rem; color: #ef4444; margin-bottom: 1rem;"></i>
+                    <p style="color: #6b7280; font-size: 1.1rem;">${escapeHtml(message)}</p>
+                    <a href="index.php" class="btn btn-primary" style="margin-top: 1rem;">
+                        <i class="fas fa-home"></i> Retour à l'accueil
+                    </a>
+                </div>
+            `;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadBookingDetails();
+        });
+    </script>
+</body>
+</html>
+
