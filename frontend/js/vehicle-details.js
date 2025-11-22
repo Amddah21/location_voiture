@@ -105,7 +105,8 @@ function displayVehicleDetails(vehicle) {
   document.getElementById('spec-doors').textContent = vehicle.doors || 4;
 
   // Description - Use database description if available, otherwise generate one
-  const description = vehicle.description && vehicle.description.trim() 
+  // Always use the exact description from database if it exists (even if empty or short)
+  const description = (vehicle.description !== null && vehicle.description !== undefined)
     ? vehicle.description 
     : generateDescription(vehicle);
   document.getElementById('vehicle-description').textContent = description;
@@ -258,7 +259,14 @@ function updateVehiclePrices(vehicle) {
   if (!vehicle) return;
   
   const price = parseFloat(vehicle.price_per_day || 0);
-  const priceFormatted = formatPrice(price);
+  
+  // Use formatPriceWithCurrency if available, otherwise use formatPrice
+  let priceFormatted;
+  if (typeof window.formatPriceWithCurrency === 'function') {
+    priceFormatted = window.formatPriceWithCurrency(price);
+  } else {
+    priceFormatted = formatPrice(price);
+  }
   
   const priceAmount = document.getElementById('price-amount');
   const summaryPriceDay = document.getElementById('summary-price-day');

@@ -565,13 +565,26 @@ function addVehicle() {
 }
 
 function showVehicleModal(vehicle = null) {
-    const modal = document.getElementById('vehicle-modal');
+    let modal = document.getElementById('vehicle-modal');
     if (!modal) {
         createVehicleModal();
+        modal = document.getElementById('vehicle-modal');
+    }
+    
+    if (!modal) {
+        console.error('Failed to create vehicle modal');
+        showToast('Erreur: Impossible d\'ouvrir le formulaire', 'error');
+        return;
     }
     
     const form = document.getElementById('vehicle-form');
     const modalTitle = document.querySelector('#vehicle-modal .modal-title');
+    
+    if (!form || !modalTitle) {
+        console.error('Form or modal title not found');
+        showToast('Erreur: Éléments du formulaire introuvables', 'error');
+        return;
+    }
     
     if (vehicle) {
         // Edit mode
@@ -1137,11 +1150,47 @@ async function handleVehicleSubmit(e) {
     }
 }
 
-function editVehicle(id) {
-    const vehicle = vehicles.find(v => v.id === id);
+async function editVehicle(id) {
+    // Convert id to number for comparison
+    const vehicleId = typeof id === 'string' ? parseInt(id) : id;
+    
+    console.log('editVehicle called with id:', vehicleId, 'vehicles array length:', vehicles.length);
+    
+    // Try to find vehicle in cached array first
+    let vehicle = vehicles.find(v => {
+        const vid = typeof v.id === 'string' ? parseInt(v.id) : v.id;
+        return vid === vehicleId;
+    });
+    
+    console.log('Vehicle found in cache:', vehicle ? 'Yes' : 'No');
+    
+    // If not found, fetch from API
+    if (!vehicle) {
+        try {
+            console.log('Fetching vehicle from API...');
+            const response = await fetch(`backend.php?action=vehicles&id=${vehicleId}`);
+            const data = await response.json();
+            
+            if (data.success && data.data) {
+                vehicle = data.data;
+                console.log('Vehicle fetched from API:', vehicle);
+            } else {
+                console.error('Vehicle not found in API:', data);
+                showToast('Véhicule non trouvé', 'error');
+                return;
+            }
+        } catch (error) {
+            console.error('Error fetching vehicle:', error);
+            showToast('Erreur lors du chargement du véhicule', 'error');
+            return;
+        }
+    }
+    
     if (vehicle) {
+        console.log('Opening modal for vehicle:', vehicle);
         showVehicleModal(vehicle);
     } else {
+        console.error('Vehicle is null or undefined');
         showToast('Véhicule non trouvé', 'error');
     }
 }

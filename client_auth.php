@@ -219,27 +219,59 @@ class ClientAuth {
             $client = $clientStmt->fetch();
             
             if (!$client) {
+                error_log("getClientBookings - Client not found for ID: " . $client_id);
                 return [];
             }
             
-            // Query bookings by client_id (if column exists) OR by phone/email
+            $phone = $client['phone'] ?? '';
+            $email = $client['email'] ?? '';
+            
+            error_log("getClientBookings - Searching for bookings with client_id: $client_id, phone: $phone, email: $email");
+            
+            // Query bookings by client_id OR by phone/email
+            // This ensures we find bookings even if client_id wasn't set during booking creation
             $stmt = $this->db->prepare("
                 SELECT b.*, v.name as vehicle_name, v.image_url as vehicle_image 
                 FROM bookings b 
                 LEFT JOIN vehicles v ON b.vehicle_id = v.id 
                 WHERE (
                     b.client_id = :client_id
-                    OR b.customer_phone = :phone
-                    OR b.customer_email = :email
+                    OR (b.customer_phone = :phone AND :phone != '')
+                    OR (b.customer_email = :email AND :email != '')
                 )
                 ORDER BY b.created_at DESC
             ");
             $stmt->execute([
                 ':client_id' => $client_id,
-                ':phone' => $client['phone'] ?? '',
-                ':email' => $client['email'] ?? ''
+                ':phone' => $phone,
+                ':email' => $email
             ]);
             $bookings = $stmt->fetchAll();
+            
+            // Automatically mark past bookings as completed if return date has passed
+            // and status is not already cancelled
+            $now = date('Y-m-d H:i:s');
+            foreach ($bookings as &$booking) {
+                if ($booking['status'] !== 'cancelled' && 
+                    $booking['status'] !== 'completed' && 
+                    strtotime($booking['return_date']) < strtotime($now)) {
+                    // Update status to completed in database
+                    try {
+                        $updateStmt = $this->db->prepare("
+                            UPDATE bookings 
+                            SET status = 'completed' 
+                            WHERE id = :id AND status NOT IN ('cancelled', 'completed')
+                        ");
+                        $updateStmt->execute([':id' => $booking['id']]);
+                        $booking['status'] = 'completed';
+                    } catch (PDOException $e) {
+                        error_log("Failed to update booking status: " . $e->getMessage());
+                    }
+                }
+            }
+            unset($booking); // Break reference
+            
+            error_log("getClientBookings - Found " . count($bookings) . " bookings for client_id: $client_id");
 
             // Log action
             if (isset($_SESSION['client_id'])) {
@@ -332,7 +364,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 exit;
             }
             $client = $auth->getCurrentClient();
+            
+            // Debug logging
+            error_log("get_bookings - Client ID: " . ($client['id'] ?? 'NULL'));
+            error_log("get_bookings - Session client_id: " . ($_SESSION['client_id'] ?? 'NULL'));
+            
             $bookings = $auth->getClientBookings($client['id']);
+            
+            // Debug logging
+            error_log("get_bookings - Found " . count($bookings) . " bookings");
+            
             echo json_encode(['success' => true, 'data' => $bookings]);
             exit;
 

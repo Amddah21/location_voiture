@@ -257,15 +257,15 @@ $currentYear = date('Y');
         style="display: <?php echo isset($_GET['location']) ? 'block' : 'none'; ?>; margin-top: 2rem;"></div>
     </section>
 
-    <section class="partner-logos">
-      <div class="container">
-        <div class="partner-logos__header">
-          <p class="partner-logos__subtitle">Nos partenaires</p>
-          <h2 class="partner-logos__title">Marques de confiance</h2>
+    <section class="brands-section-2025" id="brands-section">
+      <div class="brands-container">
+        <div class="brands-header">
+          <span class="brands-badge">NOS PARTENAIRES</span>
+          <h2 class="brands-title">Marques de confiance</h2>
         </div>
-        <div class="brands-grid" id="brands-grid">
+        <div class="brands-grid-2025" id="brands-grid-2025">
           <!-- Brands will be loaded dynamically -->
-          <div class="loading">Chargement des marques...</div>
+          <div class="brands-loading">Chargement des marques...</div>
         </div>
       </div>
     </section>

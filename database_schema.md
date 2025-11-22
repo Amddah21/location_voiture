@@ -15,7 +15,7 @@ Stocke toutes les informations des clients.
 - `password_hash` - VARCHAR(255) NOT NULL - Mot de passe hashé
 - `address` - TEXT - Adresse complète
 - `city` - VARCHAR(100) - Ville
-- `country` - VARCHAR(100) DEFAULT 'France' - Pays
+- `country` - VARCHAR(100) DEFAULT 'Maroc' - Pays
 - `date_of_birth` - DATE - Date de naissance
 - `license_number` - VARCHAR(100) - Numéro de permis de conduire
 - `license_expiry` - DATE - Date d'expiration du permis

@@ -381,7 +381,7 @@ class RentcarsAPI
             $columns_to_add = [
                 'address' => "ALTER TABLE clients ADD COLUMN address TEXT AFTER email",
                 'city' => "ALTER TABLE clients ADD COLUMN city VARCHAR(100) AFTER address",
-                'country' => "ALTER TABLE clients ADD COLUMN country VARCHAR(100) DEFAULT 'France' AFTER city",
+                'country' => "ALTER TABLE clients ADD COLUMN country VARCHAR(100) DEFAULT 'Maroc' AFTER city",
                 'date_of_birth' => "ALTER TABLE clients ADD COLUMN date_of_birth DATE AFTER country",
                 'license_number' => "ALTER TABLE clients ADD COLUMN license_number VARCHAR(100) AFTER date_of_birth",
                 'license_expiry' => "ALTER TABLE clients ADD COLUMN license_expiry DATE AFTER license_number",
@@ -1112,6 +1112,9 @@ class RentcarsAPI
             $logged_in_client_id = null;
             if (isset($_SESSION['client_id']) && $_SESSION['client_id']) {
                 $logged_in_client_id = $_SESSION['client_id'];
+                error_log("createBooking - Client logged in with ID: " . $logged_in_client_id);
+            } else {
+                error_log("createBooking - No client logged in (session client_id not set)");
             }
 
             // Get vehicle price
@@ -1183,6 +1186,8 @@ class RentcarsAPI
             }
 
             // Create booking
+            error_log("createBooking - Inserting booking with client_id: " . ($client_id ?? 'NULL'));
+            
             $stmt = $this->db->prepare("
                 INSERT INTO bookings (vehicle_id, client_id, customer_name, customer_email, customer_phone, pickup_location, pickup_date, return_date, total_price, status)
                 VALUES (:vehicle_id, :client_id, :customer_name, :customer_email, :customer_phone, :pickup_location, :pickup_date, :return_date, :total_price, 'pending')
@@ -1201,6 +1206,7 @@ class RentcarsAPI
             ]);
 
             $id = $this->db->lastInsertId();
+            error_log("createBooking - Booking created with ID: $id, client_id: " . ($client_id ?? 'NULL'));
 
             // Log admin action if admin is logged in
             if (isset($_SESSION['admin_id'])) {

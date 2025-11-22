@@ -69,11 +69,20 @@ document.addEventListener('DOMContentLoaded', () => {
   initBrandCards();
 });
 
-// Initialize Brand Cards with Enhanced Animations - Load from API
+// Initialize Brand Cards with Modern 2025 Design - Load from API
 async function initBrandCards() {
-  const brandsGrid = document.getElementById('brands-grid');
+  // Check for new 2025 section first
+  const brandsGrid2025 = document.getElementById('brands-grid-2025');
+  const brandsGridOld = document.getElementById('brands-grid');
   
-  if (!brandsGrid) {
+  // Use new 2025 design if available
+  if (brandsGrid2025) {
+    initBrandsSection2025();
+    return;
+  }
+  
+  // Fallback to old design if new section doesn't exist
+  if (!brandsGridOld) {
     return;
   }
   
@@ -88,7 +97,7 @@ async function initBrandCards() {
     const brands = await response.json();
     
     if (!brands || brands.length === 0) {
-      brandsGrid.innerHTML = '<p style="text-align: center; padding: 2rem; color: #999;">Aucune marque disponible</p>';
+      brandsGridOld.innerHTML = '<p style="text-align: center; padding: 2rem; color: #999;">Aucune marque disponible</p>';
       return;
     }
     
@@ -103,13 +112,8 @@ async function initBrandCards() {
       return baseUrl + basePath + '/' + url;
     }
     
-    // Duplicate brands array for infinite loop effect (add brands 2 more times)
-    const duplicatedBrands = [...brands, ...brands];
-    const totalBrands = brands.length;
-    const rotationSpeed = 4; // seconds per logo
-    
     // Render brand cards with clean design
-    brandsGrid.innerHTML = brands.map((brand, cardIndex) => {
+    brandsGridOld.innerHTML = brands.map((brand, cardIndex) => {
       const imageUrl = getImageUrl(brand.logo_url);
       const placeholderSVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='100'%3E%3Crect fill='%23f3f4f6' width='200' height='100'/%3E%3Ctext fill='%239ca3af' font-family='Arial' font-size='14' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3E${encodeURIComponent(brand.name)}%3C/text%3E%3C/svg%3E`;
       
@@ -135,8 +139,177 @@ async function initBrandCards() {
     
   } catch (error) {
     console.error('Error loading brands:', error);
-    brandsGrid.innerHTML = '<p style="text-align: center; padding: 2rem; color: #e74c3c;">Erreur lors du chargement des marques</p>';
+    brandsGridOld.innerHTML = '<p style="text-align: center; padding: 2rem; color: #e74c3c;">Erreur lors du chargement des marques</p>';
   }
+}
+
+/**
+ * Modern 2025 Brands Section - JavaScript
+ * Handles dynamic loading and scroll reveal animations
+ */
+function initBrandsSection2025() {
+  const brandsGrid = document.getElementById('brands-grid-2025');
+  
+  if (!brandsGrid) {
+    console.error('brands-grid-2025 element not found');
+    return;
+  }
+  
+  console.log('Initializing brands section 2025...');
+  
+  // Load brands from API
+  loadBrands2025();
+}
+
+// Load brands from backend API
+async function loadBrands2025() {
+  const brandsGrid = document.getElementById('brands-grid-2025');
+  
+  if (!brandsGrid) {
+    console.error('brands-grid-2025 not found');
+    return;
+  }
+  
+  try {
+    console.log('Loading brands from API...');
+    const response = await fetch('backend.php?action=car_brands');
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    console.log('Brands API response:', result);
+    
+    // Handle both array and object with data property
+    let brands = [];
+    if (Array.isArray(result)) {
+      brands = result;
+    } else if (result.success && result.data) {
+      brands = result.data;
+    } else if (result.data) {
+      brands = result.data;
+    } else {
+      brands = [];
+    }
+    
+    console.log('Processed brands:', brands);
+    
+    if (!brands || brands.length === 0) {
+      brandsGrid.innerHTML = '<p style="text-align: center; padding: 3rem; color: rgba(14, 245, 150, 0.6);">Aucune marque disponible</p>';
+      return;
+    }
+    
+    // Filter only active brands (if is_active property exists)
+    const activeBrands = brands.filter(brand => {
+      // If is_active property doesn't exist, include the brand
+      if (brand.is_active === undefined) return true;
+      return brand.is_active !== false && brand.is_active !== 0;
+    });
+    
+    console.log('Active brands:', activeBrands);
+    
+    if (activeBrands.length === 0) {
+      brandsGrid.innerHTML = '<p style="text-align: center; padding: 3rem; color: rgba(14, 245, 150, 0.6);">Aucune marque active</p>';
+      return;
+    }
+    
+    // Helper function to get absolute URL
+    function getImageUrl(url) {
+      if (!url) return '';
+      if (url.startsWith('http://') || url.startsWith('https://')) return url;
+      const baseUrl = window.location.origin;
+      const pathname = window.location.pathname;
+      const basePath = pathname.substring(0, pathname.lastIndexOf('/')) || '';
+      if (url.startsWith('/')) return baseUrl + url;
+      return baseUrl + basePath + '/' + url;
+    }
+    
+    // Helper function to escape HTML
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // Render brand cards
+    brandsGrid.innerHTML = activeBrands.map((brand, index) => {
+      const imageUrl = getImageUrl(brand.logo_url);
+      const brandName = brand.name || 'Brand';
+      const escapedName = escapeHtml(brandName);
+      const escapedUrl = escapeHtml(imageUrl);
+      
+      return `
+        <div class="brand-card-2025" data-brand-index="${index}">
+          <img 
+            src="${escapedUrl}" 
+            alt="${escapedName}" 
+            class="brand-logo-2025"
+            loading="lazy"
+            onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'100\'%3E%3Crect fill=\'%2311221a\' width=\'200\' height=\'100\'/%3E%3Ctext fill=\'%230ef596\' font-family=\'Arial\' font-size=\'14\' x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dy=\'.3em\'%3E${escapedName}%3C/text%3E%3C/svg%3E';"
+          >
+        </div>
+      `;
+    }).join('');
+    
+    console.log('Brands rendered:', activeBrands.length, 'cards');
+    
+    // Setup observer after rendering
+    setTimeout(() => {
+      setupBrandsObserver();
+    }, 100);
+    
+  } catch (error) {
+    console.error('Error loading brands:', error);
+    brandsGrid.innerHTML = '<p style="text-align: center; padding: 3rem; color: rgba(239, 68, 68, 0.6);">Erreur lors du chargement des marques</p>';
+  }
+}
+
+// Setup IntersectionObserver for scroll reveal animation
+function setupBrandsObserver() {
+  const brandCards = document.querySelectorAll('.brand-card-2025');
+  
+  console.log('Setting up observer for', brandCards.length, 'brand cards');
+  
+  if (brandCards.length === 0) {
+    console.warn('No brand cards found for observer');
+    return;
+  }
+  
+  const observerOptions = {
+    root: null,
+    rootMargin: '0px 0px -50px 0px',
+    threshold: 0.1
+  };
+  
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        console.log('Brand card revealed:', entry.target);
+        entry.target.classList.add('revealed');
+        // Unobserve after animation to prevent re-triggering
+        observer.unobserve(entry.target);
+      }
+    });
+  }, observerOptions);
+  
+  // Observe each brand card
+  brandCards.forEach((card, index) => {
+    console.log('Observing brand card', index);
+    observer.observe(card);
+  });
+  
+  // Also reveal cards immediately if they're already in view
+  brandCards.forEach(card => {
+    const rect = card.getBoundingClientRect();
+    const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+    if (isVisible) {
+      setTimeout(() => {
+        card.classList.add('revealed');
+      }, 100);
+    }
+  });
 }
 
 // Setup animations for brand cards
@@ -1078,6 +1251,7 @@ async function submitBooking() {
       headers: {
         'Content-Type': 'application/json'
       },
+      credentials: 'same-origin', // Important: Send session cookies
       body: JSON.stringify(bookingData)
     });
 
