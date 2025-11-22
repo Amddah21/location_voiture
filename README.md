@@ -1,6 +1,8 @@
-# Rentcars - Car Rental Management System
+# Cars Location voiture - Car Rental Management System
 
 A complete car rental management system built with PHP, MySQL, HTML, CSS, and JavaScript. This system includes both a public-facing website for customers and a comprehensive admin dashboard for managing vehicles, bookings, clients, and more.
+
+**Cars Location voiture** is a premium car rental platform with advanced features including brand management, automatic logo rotation animations, booking notifications, and a modern responsive design.
 
 ## Features
 
@@ -8,20 +10,27 @@ A complete car rental management system built with PHP, MySQL, HTML, CSS, and Ja
 - 🚗 Vehicle browsing and search
 - 📅 Booking system with date selection
 - 💰 Multi-currency support (MAD/EUR)
-- 📱 Responsive design
-- 🔍 Advanced search filters
-- 📄 Vehicle details pages
+- 📱 Fully responsive design (mobile, tablet, desktop)
+- 🔍 Advanced search filters with brand selection
+- 📄 Vehicle details pages with image galleries
+- 🎨 Premium animations and modern UI design
+- 🏷️ Brand logo carousel with automatic rotation
+- ⚡ Smooth animations and hover effects
+- 🎯 Click on brand logos to filter vehicles automatically
 
 ### Admin Dashboard
-- 📊 Dashboard with statistics
+- 📊 Dashboard with real-time statistics
 - 🚙 Vehicle management (CRUD operations)
-- 📋 Booking management
+- 📋 Booking management with status updates
+- 🔔 Notification system for pending bookings
 - 👥 Client management
-- 📝 Activity logs
+- 📝 Activity logs tracking
 - 📞 Contact management
+- 🏷️ Car brand logo management with file upload
 - ⚙️ Admin user management
 - 🔐 Password change functionality
-- 📅 Vehicle availability dates
+- 📅 Vehicle availability dates management
+- 📸 Image upload for vehicles and brands
 
 ## Technology Stack
 
@@ -41,8 +50,8 @@ A complete car rental management system built with PHP, MySQL, HTML, CSS, and Ja
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/rental_car.git
-cd rental_car
+git clone https://github.com/yourusername/cars-location-voiture.git
+cd cars-location-voiture
 ```
 
 ### 2. Setup XAMPP
@@ -55,8 +64,8 @@ cd rental_car
 3. Or manually create database: `location_voiture`
 
 ### 4. Configuration
-1. Copy the project to `C:\xampp\htdocs\rental_car\` (or your XAMPP htdocs directory)
-2. Update database credentials in `backend.php` if needed:
+1. Copy the project to `C:\xampp\htdocs\location_voiture\` (or your XAMPP htdocs directory)
+2. Update database credentials in `index.php` and `backend.php` if needed:
    ```php
    define('DB_HOST', 'localhost');
    define('DB_NAME', 'location_voiture');
@@ -65,8 +74,8 @@ cd rental_car
    ```
 
 ### 5. Access the Application
-- **Public Website**: http://localhost/rental_car/
-- **Admin Dashboard**: http://localhost/rental_car/admin_login.php
+- **Public Website**: http://localhost/location_voiture/
+- **Admin Dashboard**: http://localhost/location_voiture/admin_login.php
   - Default credentials:
     - Email: `admin@rentcars.com`
     - Password: `admin123`
@@ -74,39 +83,56 @@ cd rental_car
 ## Project Structure
 
 ```
-rental_car/
+location_voiture/
 ├── backend.php              # Main API endpoint
 ├── admin_dashboard.php      # Admin panel
 ├── admin_login.php          # Admin login page
-├── index.php                 # Public homepage
-├── backend/                  # Backend files
-│   ├── auth/                # Authentication files
+├── index.php                # Public homepage
+├── backend/                 # Backend files
 │   ├── db/                  # Database connection
 │   └── uploads/             # Uploaded images
-├── frontend/                 # Frontend assets
-│   ├── css/                 # Stylesheets
-│   ├── js/                  # JavaScript files
-│   ├── components/          # Reusable components
-│   └── images/              # Images
 ├── script/                  # JavaScript files
+│   ├── script.js            # Main frontend JS
+│   ├── admin_dashboard.js   # Admin panel JS
+│   ├── vehicle-details.js   # Vehicle details JS
+│   └── load-components.js   # Component loader
 ├── components/              # HTML components
-└── images/                  # Vehicle images
+│   ├── header/              # Header component
+│   └── footer/              # Footer component
+├── images/                  # Images
+│   ├── logos/               # Brand logos
+│   └── vehicles/            # Vehicle images
+├── logo/                    # Main logo
+├── styles.css               # Main stylesheet
+├── admin_styles.css         # Admin dashboard styles
+└── upload_brand_logo.php    # Brand logo upload handler
 ```
 
 ## Features in Detail
 
 ### Vehicle Management
 - Add, edit, delete vehicles
-- Set availability dates
-- Upload vehicle images
-- Manage pricing in MAD
-- Set vehicle specifications (passengers, transmission, etc.)
+- Set availability dates (available_from, available_to)
+- Upload multiple vehicle images
+- Manage pricing in MAD with EUR conversion
+- Set vehicle specifications (passengers, transmission, doors, AC, etc.)
+- Vehicle availability status
 
 ### Booking System
-- Customer booking interface
-- Admin booking management
-- Booking status tracking
-- Automatic price calculation
+- Customer booking interface with date selection
+- Admin booking management with status updates (pending, confirmed, active, completed, cancelled)
+- Real-time booking notifications
+- Booking status tracking and filtering
+- Automatic price calculation based on rental days
+- Client creation/update on booking
+
+### Brand Management
+- Add/Edit/Delete car brands (Mercedes, Audi, BMW, etc.)
+- Upload brand logos (PNG, JPG, SVG, WebP, GIF)
+- Automatic logo rotation animation on homepage
+- Click on brand logo to filter vehicles by brand
+- Display order management
+- Active/Inactive brand status
 
 ### Admin Features
 - User authentication

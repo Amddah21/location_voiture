@@ -56,13 +56,201 @@ const API_BASE = 'backend.php';
 
 // Load vehicles on page load
 document.addEventListener('DOMContentLoaded', () => {
-  loadVehicles();
+  loadHeader();
+  
+  // Check if there's a brand filter in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const brandParam = urlParams.get('brand');
+  
+  loadVehicles(brandParam || null);
   setupSearchForm();
   setupBookingModal();
+  initBrandCards();
 });
 
+// Initialize Brand Cards with Enhanced Animations - Load from API
+async function initBrandCards() {
+  const brandsGrid = document.getElementById('brands-grid');
+  
+  if (!brandsGrid) {
+    return;
+  }
+  
+  try {
+    // Load brands from API
+    const response = await fetch('backend.php?action=car_brands');
+    
+    if (!response.ok) {
+      throw new Error('Failed to load brands');
+    }
+    
+    const brands = await response.json();
+    
+    if (!brands || brands.length === 0) {
+      brandsGrid.innerHTML = '<p style="text-align: center; padding: 2rem; color: #999;">Aucune marque disponible</p>';
+      return;
+    }
+    
+    // Helper function to get absolute URL
+    function getImageUrl(url) {
+      if (!url) return '';
+      if (url.startsWith('http://') || url.startsWith('https://')) return url;
+      const baseUrl = window.location.origin;
+      const pathname = window.location.pathname;
+      const basePath = pathname.substring(0, pathname.lastIndexOf('/')) || '';
+      if (url.startsWith('/')) return baseUrl + url;
+      return baseUrl + basePath + '/' + url;
+    }
+    
+    // Duplicate brands array for infinite loop effect (add brands 2 more times)
+    const duplicatedBrands = [...brands, ...brands];
+    const totalBrands = brands.length;
+    const rotationSpeed = 4; // seconds per logo
+    
+    // Render brand cards with auto-changing logos
+    brandsGrid.innerHTML = brands.map((brand, cardIndex) => {
+      // Create logo slides for auto-change animation - rotate through all brands
+      // Start each card at a different position for staggered effect
+      const allLogos = duplicatedBrands.map((b, logoIndex) => {
+        const imageUrl = getImageUrl(b.logo_url);
+        // Calculate delay so each card starts at different brand
+        const startOffset = (cardIndex * rotationSpeed) % (totalBrands * rotationSpeed);
+        const delay = (logoIndex * rotationSpeed) - startOffset;
+        return `
+          <div class="brand-logo-slide" style="--slide-index: ${logoIndex}; --total-slides: ${duplicatedBrands.length}; animation-delay: ${delay}s;">
+            <img src="${escapeHtml(imageUrl)}" 
+                 alt="${escapeHtml(b.name)}" 
+                 class="brand-logo" 
+                 loading="lazy"
+                 onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'200\\' height=\\'100\\'%3E%3Crect fill=\\'%23f3f4f6\\' width=\\'200\\' height=\\'100\\'/%3E%3Ctext fill=\\'%239ca3af\\' font-family=\\'Arial\\' font-size=\\'12\\' x=\\'50%\\' y=\\'50%\\' text-anchor=\\'middle\\' dy=\\'.3em\\'%3E${encodeURIComponent(b.name)}%3C/text%3E%3C/svg%3E';">
+          </div>
+        `;
+      }).join('');
+      
+      return `
+      <div class="brand-card" 
+           data-brand="${escapeHtml(brand.name)}" 
+           data-brand-slug="${brand.name.toLowerCase().replace(/\s+/g, '-')}" 
+           style="--card-delay: ${cardIndex * 0.05}s; 
+                  --card-index: ${cardIndex};
+                  --rotation-speed: ${rotationSpeed}s;
+                  --total-brands: ${totalBrands};
+                  animation-delay: ${cardIndex * 0.05}s, ${1.2 + cardIndex * 0.05}s;"
+           title="Cliquez pour voir les voitures ${escapeHtml(brand.name)}">
+        <div class="brand-logo-wrapper brand-logo-carousel">
+          <div class="brand-logo-container">
+            ${allLogos}
+          </div>
+          <div class="brand-logo-shimmer"></div>
+        </div>
+      </div>
+    `;
+    }).join('');
+    
+    // Initialize animations for loaded cards
+    setupBrandCardsAnimations();
+    
+  } catch (error) {
+    console.error('Error loading brands:', error);
+    brandsGrid.innerHTML = '<p style="text-align: center; padding: 2rem; color: #e74c3c;">Erreur lors du chargement des marques</p>';
+  }
+}
+
+// Setup animations for brand cards
+function setupBrandCardsAnimations() {
+  const brandCards = document.querySelectorAll('.brand-card');
+  const brandLogos = document.querySelectorAll('.brand-logo');
+  
+  // Image error handling - use local SVG placeholder
+  const placeholderSVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNmM2Y0ZjYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOWNhM2FmIj5Mb2dvPC90ZXh0Pjwvc3ZnPg==';
+  
+  brandLogos.forEach((logo) => {
+    logo.addEventListener('error', function() {
+      this.src = placeholderSVG;
+    });
+    
+    // Remove loading class when image loads
+    logo.addEventListener('load', function() {
+      const card = this.closest('.brand-card');
+      if (card) {
+        card.classList.remove('loading');
+      }
+    });
+  });
+  
+  // Intersection Observer for performance - animate only when visible
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-view');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, {
+      threshold: 0.1,
+      rootMargin: '50px'
+    });
+    
+    brandCards.forEach(card => {
+      observer.observe(card);
+    });
+  } else {
+    // Fallback for browsers without IntersectionObserver
+    brandCards.forEach(card => {
+      card.classList.add('in-view');
+    });
+  }
+  
+  // Add click interaction to filter vehicles by brand
+  brandCards.forEach(card => {
+    card.addEventListener('click', function() {
+      const brandName = this.getAttribute('data-brand');
+      
+      if (brandName) {
+        // Add visual feedback
+        this.style.animation = 'none';
+        this.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          this.style.animation = '';
+          this.style.transform = '';
+        }, 200);
+        
+        // Filter and display vehicles by brand
+        filterVehiclesByBrand(brandName);
+      }
+    });
+    
+    // Pause rotation on hover and show current logo
+    card.addEventListener('mouseenter', function() {
+      const slides = this.querySelectorAll('.brand-logo-slide');
+      slides.forEach(slide => {
+        const computedStyle = window.getComputedStyle(slide);
+        if (parseFloat(computedStyle.opacity) > 0.7) {
+          // This is the visible slide - enhance it
+          slide.style.opacity = '1';
+          slide.style.zIndex = '10';
+          slide.style.transform = 'scale(1.2) translateY(0) rotateY(0deg)';
+        }
+      });
+    });
+    
+    card.addEventListener('mouseleave', function() {
+      const slides = this.querySelectorAll('.brand-logo-slide');
+      slides.forEach(slide => {
+        slide.style.opacity = '';
+        slide.style.zIndex = '';
+        slide.style.transform = '';
+      });
+    });
+  });
+}
+
+// Store all vehicles globally for filtering
+let allVehicles = [];
+
 // Load vehicles from API - Dynamic loading from database
-async function loadVehicles() {
+async function loadVehicles(brandFilter = null) {
   const grid = document.getElementById('vehicles-grid');
   if (grid) {
     grid.innerHTML = '<p style="text-align: center; padding: 2rem;">Chargement des véhicules...</p>';
@@ -93,12 +281,23 @@ async function loadVehicles() {
         }
       }
       
+      // Store all vehicles globally
+      allVehicles = availableVehicles;
+      
+      // Apply brand filter if provided
+      if (brandFilter) {
+        availableVehicles = filterVehiclesByBrandName(availableVehicles, brandFilter);
+      }
+      
       console.log('Vehicles to display:', availableVehicles); // Debug log
       
       if (availableVehicles.length > 0) {
-        displayVehicles(availableVehicles.slice(0, 8)); // Show first 8 vehicles
+        displayVehicles(availableVehicles, brandFilter); // Show filtered vehicles
       } else {
-        showLoadingError('Aucun véhicule trouvé. Veuillez ajouter des véhicules dans le panneau d\'administration et les marquer comme disponibles.');
+        const message = brandFilter 
+          ? `Aucun véhicule ${brandFilter} trouvé.` 
+          : 'Aucun véhicule trouvé. Veuillez ajouter des véhicules dans le panneau d\'administration et les marquer comme disponibles.';
+        showLoadingError(message);
       }
     } else {
       console.error('API response error:', result);
@@ -110,6 +309,151 @@ async function loadVehicles() {
   }
 }
 
+// Filter vehicles by brand name
+function filterVehiclesByBrandName(vehicles, brandName) {
+  if (!brandName || brandName.trim() === '') return vehicles;
+  
+  // Normalize brand name for matching (case-insensitive, handle variations)
+  const normalizedBrand = brandName.toLowerCase().trim();
+  
+  // Common brand name variations and how they appear in vehicle names
+  const brandVariations = {
+    'mercedes': ['mercedes', 'mercedes-benz', 'benz'],
+    'audi': ['audi'],
+    'bmw': ['bmw'],
+    'ford': ['ford'],
+    'renault': ['renault'],
+    'peugeot': ['peugeot'],
+    'citroen': ['citroen', 'citroën'],
+    'citroën': ['citroen', 'citroën'],
+    'dacia': ['dacia'],
+    'opel': ['opel'],
+    'kia': ['kia'],
+    'toyota': ['toyota'],
+    'honda': ['honda'],
+    'nissan': ['nissan'],
+    'volkswagen': ['volkswagen', 'vw'],
+    'volvo': ['volvo'],
+    'jaguar': ['jaguar'],
+    'porsche': ['porsche'],
+    'ferrari': ['ferrari'],
+    'lamborghini': ['lamborghini'],
+    'maserati': ['maserati']
+  };
+  
+  // Find matching variations
+  let searchTerms = [normalizedBrand];
+  for (const [key, variations] of Object.entries(brandVariations)) {
+    if (variations.some(v => normalizedBrand.includes(v) || v.includes(normalizedBrand))) {
+      searchTerms = variations;
+      break;
+    }
+  }
+  
+  // Filter vehicles whose name contains any of the search terms
+  return vehicles.filter(vehicle => {
+    const vehicleName = (vehicle.name || '').toLowerCase();
+    return searchTerms.some(term => vehicleName.includes(term));
+  });
+}
+
+// Filter vehicles by brand and scroll to vehicles section
+function filterVehiclesByBrand(brandName) {
+  if (!brandName) return;
+  
+  // Scroll to vehicles section smoothly
+  const vehiclesSection = document.getElementById('services') || document.querySelector('.section.services');
+  if (vehiclesSection) {
+    vehiclesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  
+  // Filter vehicles
+  if (allVehicles.length > 0) {
+    // Use cached vehicles for faster filtering
+    const filteredVehicles = filterVehiclesByBrandName(allVehicles, brandName);
+    displayVehicles(filteredVehicles, brandName);
+    
+    // Show notification
+    showBrandFilterNotification(brandName, filteredVehicles.length);
+  } else {
+    // Load vehicles with brand filter
+    loadVehicles(brandName);
+  }
+  
+  // Update URL with brand parameter (without reloading page)
+  const url = new URL(window.location);
+  url.searchParams.set('brand', encodeURIComponent(brandName));
+  window.history.pushState({ brand: brandName }, '', url);
+}
+
+// Show notification when filtering by brand
+function showBrandFilterNotification(brandName, count) {
+  // Remove existing notification if any
+  const existingNotification = document.getElementById('brand-filter-notification');
+  if (existingNotification) {
+    existingNotification.remove();
+  }
+  
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.id = 'brand-filter-notification';
+  notification.className = 'brand-filter-notification';
+  notification.innerHTML = `
+    <div class="notification-content">
+      <i class="fas fa-check-circle"></i>
+      <span>Affichage de <strong>${count}</strong> véhicule${count > 1 ? 's' : ''} ${escapeHtml(brandName)}</span>
+      <button class="notification-close" onclick="clearBrandFilter()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  `;
+  
+  // Insert before vehicles grid
+  const vehiclesGrid = document.getElementById('vehicles-grid');
+  const servicesSection = document.getElementById('services') || document.querySelector('.section.services');
+  if (servicesSection && vehiclesGrid) {
+    servicesSection.insertBefore(notification, vehiclesGrid);
+    
+    // Animate in
+    setTimeout(() => {
+      notification.classList.add('show');
+    }, 100);
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      if (notification) {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+      }
+    }, 5000);
+  }
+}
+
+// Clear brand filter and show all vehicles
+function clearBrandFilter() {
+  // Remove notification
+  const notification = document.getElementById('brand-filter-notification');
+  if (notification) {
+    notification.classList.remove('show');
+    setTimeout(() => notification.remove(), 300);
+  }
+  
+  // Show all vehicles
+  if (allVehicles.length > 0) {
+    displayVehicles(allVehicles.slice(0, 8));
+  } else {
+    loadVehicles();
+  }
+  
+  // Remove brand parameter from URL
+  const url = new URL(window.location);
+  url.searchParams.delete('brand');
+  window.history.pushState({}, '', url);
+}
+
+// Make clearBrandFilter available globally
+window.clearBrandFilter = clearBrandFilter;
+
 function showLoadingError(message) {
   const grid = document.getElementById('vehicles-grid');
   if (grid) {
@@ -118,19 +462,27 @@ function showLoadingError(message) {
 }
 
 // Display vehicles in the grid
-function displayVehicles(vehicles) {
+function displayVehicles(vehicles, brandFilter = null) {
   const grid = document.getElementById('vehicles-grid');
   if (!grid) return;
 
   if (vehicles.length === 0) {
-    grid.innerHTML = '<p style="text-align: center; padding: 2rem; color: var(--text-secondary);">Aucun véhicule disponible pour le moment.</p>';
+    const message = brandFilter 
+      ? `<p style="text-align: center; padding: 2rem; color: var(--text-secondary);">Aucun véhicule ${escapeHtml(brandFilter)} disponible pour le moment.</p>` 
+      : '<p style="text-align: center; padding: 2rem; color: var(--text-secondary);">Aucun véhicule disponible pour le moment.</p>';
+    grid.innerHTML = message;
     return;
   }
+  
+  // Limit to 20 vehicles when filtering, 8 otherwise
+  const maxVehicles = brandFilter ? 20 : 8;
+  const vehiclesToShow = vehicles.slice(0, maxVehicles);
 
-  grid.innerHTML = vehicles.map(vehicle => {
+  grid.innerHTML = vehiclesToShow.map(vehicle => {
     // Escape HTML to prevent XSS and handle missing data
     const name = escapeHtml(vehicle.name || 'Véhicule');
-    const imageUrl = vehicle.image_url || 'https://via.placeholder.com/400x200?text=No+Image';
+    const placeholderVehicleSVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgNDAwIDIwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmM2Y0ZjYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjOWNhM2FmIj5JbWFnZSBub24gZGlzcG9uaWJsZTwvdGV4dD48L3N2Zz4=';
+    const imageUrl = vehicle.image_url || placeholderVehicleSVG;
     const rating = parseFloat(vehicle.rating || 4.5).toFixed(1);
     const reviewCount = vehicle.review_count || 0;
     const passengers = vehicle.passengers || 4;
@@ -142,7 +494,7 @@ function displayVehicles(vehicles) {
 
     return `
       <article class="vehicle-card">
-        <img src="${escapeHtml(imageUrl)}" alt="${name}" loading="lazy" decoding="async" onerror="this.src='https://via.placeholder.com/400x200?text=Image+Error'">
+        <img src="${escapeHtml(imageUrl)}" alt="${name}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgNDAwIDIwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmM2Y0ZjYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjOWNhM2FmIj5FcnJldXIgY2hhcmdlbWVudDwvdGV4dD48L3N2Zz4=';">
         <div class="vehicle-card__body">
           <div class="vehicle-card__header">
             <h3>${name}</h3>
@@ -243,15 +595,18 @@ function displaySearchResults(vehicles, searchParams) {
     return;
   }
 
+  const placeholderVehicleSVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgNDAwIDIwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmM2Y0ZjYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjOWNhM2FmIj5JbWFnZSBub24gZGlzcG9uaWJsZTwvdGV4dD48L3N2Zz4=';
+  const errorVehicleSVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgNDAwIDIwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmM2Y0ZjYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjOWNhM2FmIj5FcnJldXIgY2hhcmdlbWVudDwvdGV4dD48L3N2Zz4=';
+  
   resultsDiv.innerHTML = `
     <h3 style="margin-bottom: 1.5rem;">Véhicules disponibles (${vehicles.length})</h3>
     <div class="cards-grid cards-grid--4">
       ${vehicles.map(vehicle => {
         const name = escapeHtml(vehicle.name || 'Véhicule');
-        const imageUrl = escapeHtml(vehicle.image_url || 'https://via.placeholder.com/400x200');
+        const imageUrl = escapeHtml(vehicle.image_url || placeholderVehicleSVG);
         return `
         <article class="vehicle-card">
-          <img src="${imageUrl}" alt="${name}" loading="lazy" decoding="async" onerror="this.src='https://via.placeholder.com/400x200?text=Image+Error'">
+          <img src="${imageUrl}" alt="${name}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${errorVehicleSVG}'">
           <div class="vehicle-card__body">
             <div class="vehicle-card__header">
               <h3>${name}</h3>

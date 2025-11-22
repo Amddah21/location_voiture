@@ -41,11 +41,13 @@ define('DB_USER', 'root');
 define('DB_PASS', '');
 define('DB_CHARSET', 'utf8mb4');
 
-class Database {
+class Database
+{
     private static $instance = null;
     private $conn;
 
-    private function __construct() {
+    private function __construct()
+    {
         try {
             $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
             $options = [
@@ -61,27 +63,32 @@ class Database {
         }
     }
 
-    public static function getInstance() {
+    public static function getInstance()
+    {
         if (self::$instance === null) {
             self::$instance = new self();
         }
         return self::$instance;
     }
 
-    public function getConnection() {
+    public function getConnection()
+    {
         return $this->conn;
     }
 }
 
-class RentcarsAPI {
+class RentcarsAPI
+{
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance()->getConnection();
         $this->initDatabase();
     }
 
-    private function initDatabase() {
+    private function initDatabase()
+    {
         try {
             // Create database if it doesn't exist
             $pdo = new PDO("mysql:host=" . DB_HOST . ";charset=" . DB_CHARSET, DB_USER, DB_PASS);
@@ -109,7 +116,7 @@ class RentcarsAPI {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ");
-            
+
             // Add new columns if they don't exist (migration)
             $this->migrateVehiclesTable();
 
@@ -222,31 +229,71 @@ class RentcarsAPI {
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ");
 
+            // Add new columns if they don't exist (migration)
+            $this->migrateUsersTable();
+
+            // Create vehicle_images table for multiple images per vehicle
+            $this->db->exec("
+                CREATE TABLE IF NOT EXISTS vehicle_images (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    vehicle_id INT NOT NULL,
+                    image_url VARCHAR(500) NOT NULL,
+                    display_order INT DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_vehicle_id (vehicle_id),
+                    INDEX idx_display_order (display_order),
+                    FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+
+            // Create car_brands table for managing car brand logos
+            $this->db->exec("
+                CREATE TABLE IF NOT EXISTS car_brands (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    logo_url VARCHAR(500) NOT NULL,
+                    display_order INT DEFAULT 0,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_display_order (display_order),
+                    INDEX idx_is_active (is_active)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+
             // Insert sample vehicles if table is empty
             $stmt = $this->db->query("SELECT COUNT(*) as count FROM vehicles");
             $result = $stmt->fetch();
             if ($result['count'] == 0) {
                 $this->insertSampleVehicles();
             }
+
+            // Insert sample car brands if table is empty
+            $stmt = $this->db->query("SELECT COUNT(*) as count FROM car_brands");
+            $result = $stmt->fetch();
+            if ($result['count'] == 0) {
+                $this->insertSampleCarBrands();
+            }
         } catch (PDOException $e) {
             error_log("Database initialization error: " . $e->getMessage());
         }
     }
 
-    private function migrateVehiclesTable() {
+    private function migrateVehiclesTable()
+    {
         try {
             // Check if description column exists
             $stmt = $this->db->query("SHOW COLUMNS FROM vehicles LIKE 'description'");
             if ($stmt->rowCount() == 0) {
                 $this->db->exec("ALTER TABLE vehicles ADD COLUMN description TEXT COMMENT 'Detailed description of the vehicle'");
             }
-            
+
             // Check if available_from column exists
             $stmt = $this->db->query("SHOW COLUMNS FROM vehicles LIKE 'available_from'");
             if ($stmt->rowCount() == 0) {
                 $this->db->exec("ALTER TABLE vehicles ADD COLUMN available_from DATE NULL COMMENT 'Date de début de disponibilité'");
             }
-            
+
             // Check if available_to column exists
             $stmt = $this->db->query("SHOW COLUMNS FROM vehicles LIKE 'available_to'");
             if ($stmt->rowCount() == 0) {
@@ -258,7 +305,8 @@ class RentcarsAPI {
         }
     }
 
-    private function migrateClientsTable() {
+    private function migrateClientsTable()
+    {
         try {
             // Check if columns exist and add them if they don't
             $columns_to_add = [
@@ -314,7 +362,23 @@ class RentcarsAPI {
         }
     }
 
-    private function insertSampleVehicles() {
+    private function migrateUsersTable()
+    {
+        try {
+            // Check if is_active column exists
+            $stmt = $this->db->query("SHOW COLUMNS FROM users LIKE 'is_active'");
+            if ($stmt->rowCount() == 0) {
+                $this->db->exec("ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT TRUE AFTER role");
+                error_log("Added column 'is_active' to users table");
+            }
+        } catch (PDOException $e) {
+            // Table might not exist yet, ignore error
+            error_log("Users table migration error (may be expected): " . $e->getMessage());
+        }
+    }
+
+    private function insertSampleVehicles()
+    {
         $vehicles = [
             [
                 'name' => 'Jaguar XE L P250',
@@ -376,13 +440,14 @@ class RentcarsAPI {
         }
     }
 
-    public function handleRequest() {
+    public function handleRequest()
+    {
         $method = $_SERVER['REQUEST_METHOD'];
-        
+
         // Check for query parameter first (for XAMPP compatibility)
         $action = $_GET['action'] ?? null;
         $id = $_GET['id'] ?? null;
-        
+
         if ($action) {
             // Handle via query parameters
             $path = $action;
@@ -415,7 +480,8 @@ class RentcarsAPI {
         }
     }
 
-    private function handleGet($path) {
+    private function handleGet($path)
+    {
         if ($path === '' || $path === 'vehicles') {
             $this->getVehicles();
         } elseif (preg_match('/^vehicles\/(\d+)$/', $path, $matches)) {
@@ -446,13 +512,24 @@ class RentcarsAPI {
             $this->getAdmins();
         } elseif (preg_match('/^admins\/(\d+)$/', $path, $matches)) {
             $this->getAdmin($matches[1]);
+        } elseif ($path === 'car_brands' || $path === 'brands') {
+            $this->getCarBrands();
+        } elseif (preg_match('/^car_brands\/(\d+)$/', $path, $matches) || preg_match('/^brands\/(\d+)$/', $path, $matches)) {
+            $id = $matches[1] ?? $_GET['id'] ?? null;
+            if ($id) {
+                $this->getCarBrand($id);
+            } else {
+                http_response_code(404);
+                echo json_encode(['error' => 'Brand ID required']);
+            }
         } else {
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $path]);
         }
     }
 
-    private function handlePost($path) {
+    private function handlePost($path)
+    {
         $data = json_decode(file_get_contents('php://input'), true);
 
         if ($path === 'bookings' || $path === 'book') {
@@ -474,13 +551,16 @@ class RentcarsAPI {
             $this->changeAdminPassword($data);
         } elseif ($path === 'admins') {
             $this->createAdmin($data);
+        } elseif ($path === 'car_brands' || $path === 'brands') {
+            $this->createCarBrand($data);
         } else {
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $path]);
         }
     }
 
-    private function handlePut($path) {
+    private function handlePut($path)
+    {
         $data = json_decode(file_get_contents('php://input'), true);
 
         if (preg_match('/^bookings\/(\d+)$/', $path, $matches)) {
@@ -493,13 +573,22 @@ class RentcarsAPI {
             $this->updateClient($matches[1], $data);
         } elseif (preg_match('/^admins\/(\d+)$/', $path, $matches)) {
             $this->updateAdmin($matches[1], $data);
+        } elseif (preg_match('/^car_brands\/(\d+)$/', $path, $matches) || preg_match('/^brands\/(\d+)$/', $path, $matches)) {
+            $id = $matches[1] ?? $_GET['id'] ?? null;
+            if ($id) {
+                $this->updateCarBrand($id, $data);
+            } else {
+                http_response_code(404);
+                echo json_encode(['error' => 'Brand ID required']);
+            }
         } else {
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found']);
         }
     }
 
-    private function handleDelete($path) {
+    private function handleDelete($path)
+    {
         if (preg_match('/^bookings\/(\d+)$/', $path, $matches)) {
             $this->deleteBooking($matches[1]);
         } elseif (preg_match('/^vehicles\/(\d+)$/', $path, $matches)) {
@@ -510,6 +599,14 @@ class RentcarsAPI {
             $this->deleteClient($matches[1]);
         } elseif (preg_match('/^admins\/(\d+)$/', $path, $matches)) {
             $this->deleteAdmin($matches[1]);
+        } elseif (preg_match('/^car_brands\/(\d+)$/', $path, $matches) || preg_match('/^brands\/(\d+)$/', $path, $matches)) {
+            $id = $matches[1] ?? $_GET['id'] ?? null;
+            if ($id) {
+                $this->deleteCarBrand($id);
+            } else {
+                http_response_code(404);
+                echo json_encode(['error' => 'Brand ID required']);
+            }
         } else {
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found']);
@@ -517,7 +614,8 @@ class RentcarsAPI {
     }
 
     // Vehicle methods
-    private function getVehicles() {
+    private function getVehicles()
+    {
         try {
             $type = $_GET['type'] ?? null;
             $available = $_GET['available'] ?? null;
@@ -548,11 +646,11 @@ class RentcarsAPI {
             }
 
             $sql .= " ORDER BY created_at DESC";
-            
+
             // Add limit for performance (default 50, can be overridden)
-            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
+            $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 50;
             $limit = min(max($limit, 1), 100); // Between 1 and 100
-            $sql .= " LIMIT " . (int)$limit;
+            $sql .= " LIMIT " . (int) $limit;
 
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
@@ -560,10 +658,10 @@ class RentcarsAPI {
 
             // Format response
             foreach ($vehicles as &$vehicle) {
-                $vehicle['air_conditioning'] = (bool)$vehicle['air_conditioning'];
-                $vehicle['available'] = (bool)$vehicle['available'];
-                $vehicle['price_per_day'] = (float)$vehicle['price_per_day'];
-                $vehicle['rating'] = (float)$vehicle['rating'];
+                $vehicle['air_conditioning'] = (bool) $vehicle['air_conditioning'];
+                $vehicle['available'] = (bool) $vehicle['available'];
+                $vehicle['price_per_day'] = (float) $vehicle['price_per_day'];
+                $vehicle['rating'] = (float) $vehicle['rating'];
             }
 
             echo json_encode(['success' => true, 'data' => $vehicles]);
@@ -573,7 +671,8 @@ class RentcarsAPI {
         }
     }
 
-    private function getVehicle($id) {
+    private function getVehicle($id)
+    {
         try {
             $stmt = $this->db->prepare("SELECT * FROM vehicles WHERE id = :id");
             $stmt->execute([':id' => $id]);
@@ -585,10 +684,20 @@ class RentcarsAPI {
                 return;
             }
 
-            $vehicle['air_conditioning'] = (bool)$vehicle['air_conditioning'];
-            $vehicle['available'] = (bool)$vehicle['available'];
-            $vehicle['price_per_day'] = (float)$vehicle['price_per_day'];
-            $vehicle['rating'] = (float)$vehicle['rating'];
+            $vehicle['air_conditioning'] = (bool) $vehicle['air_conditioning'];
+            $vehicle['available'] = (bool) $vehicle['available'];
+            $vehicle['price_per_day'] = (float) $vehicle['price_per_day'];
+            $vehicle['rating'] = (float) $vehicle['rating'];
+
+            // Fetch all images for this vehicle
+            $imagesStmt = $this->db->prepare("SELECT id, image_url, display_order FROM vehicle_images WHERE vehicle_id = :id ORDER BY display_order ASC, id ASC");
+            $imagesStmt->execute([':id' => $id]);
+            $images = $imagesStmt->fetchAll();
+            $vehicle['images'] = array_column($images, 'image_url');
+            // If no images, use the main image_url as fallback
+            if (empty($vehicle['images']) && !empty($vehicle['image_url'])) {
+                $vehicle['images'] = [$vehicle['image_url']];
+            }
 
             echo json_encode(['success' => true, 'data' => $vehicle]);
         } catch (PDOException $e) {
@@ -597,7 +706,8 @@ class RentcarsAPI {
         }
     }
 
-    private function searchVehicles() {
+    private function searchVehicles()
+    {
         try {
             $location = $_GET['location'] ?? '';
             $pickup_date = $_GET['pickup_date'] ?? '';
@@ -626,21 +736,21 @@ class RentcarsAPI {
             }
 
             $sql .= " ORDER BY v.price_per_day ASC";
-            
+
             // Add limit for performance
-            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
+            $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 50;
             $limit = min(max($limit, 1), 100);
-            $sql .= " LIMIT " . (int)$limit;
+            $sql .= " LIMIT " . (int) $limit;
 
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
             $vehicles = $stmt->fetchAll();
 
             foreach ($vehicles as &$vehicle) {
-                $vehicle['air_conditioning'] = (bool)$vehicle['air_conditioning'];
-                $vehicle['available'] = (bool)$vehicle['available'];
-                $vehicle['price_per_day'] = (float)$vehicle['price_per_day'];
-                $vehicle['rating'] = (float)$vehicle['rating'];
+                $vehicle['air_conditioning'] = (bool) $vehicle['air_conditioning'];
+                $vehicle['available'] = (bool) $vehicle['available'];
+                $vehicle['price_per_day'] = (float) $vehicle['price_per_day'];
+                $vehicle['rating'] = (float) $vehicle['rating'];
             }
 
             echo json_encode([
@@ -659,7 +769,8 @@ class RentcarsAPI {
         }
     }
 
-    private function createVehicle($data) {
+    private function createVehicle($data)
+    {
         try {
             $required = ['name', 'type', 'price_per_day'];
             foreach ($required as $field) {
@@ -682,18 +793,39 @@ class RentcarsAPI {
                 ':image_url' => $data['image_url'] ?? null,
                 ':passengers' => $data['passengers'] ?? 4,
                 ':transmission' => $data['transmission'] ?? 'Auto',
-                ':air_conditioning' => isset($data['air_conditioning']) ? (int)$data['air_conditioning'] : 1,
+                ':air_conditioning' => isset($data['air_conditioning']) ? (int) $data['air_conditioning'] : 1,
                 ':doors' => $data['doors'] ?? 4,
                 ':rating' => $data['rating'] ?? 4.5,
                 ':review_count' => $data['review_count'] ?? 0,
-                ':available' => isset($data['available']) ? (int)$data['available'] : 1,
+                ':available' => isset($data['available']) ? (int) $data['available'] : 1,
                 ':description' => $data['description'] ?? null,
                 ':available_from' => !empty($data['available_from']) ? $data['available_from'] : null,
                 ':available_to' => !empty($data['available_to']) ? $data['available_to'] : null
             ]);
 
             $id = $this->db->lastInsertId();
-            
+
+            // Save multiple images if provided
+            if (!empty($data['images']) && is_array($data['images'])) {
+                $imageStmt = $this->db->prepare("INSERT INTO vehicle_images (vehicle_id, image_url, display_order) VALUES (:vehicle_id, :image_url, :display_order)");
+                foreach ($data['images'] as $index => $imageUrl) {
+                    if (!empty($imageUrl)) {
+                        $imageStmt->execute([
+                            ':vehicle_id' => $id,
+                            ':image_url' => $imageUrl,
+                            ':display_order' => $index
+                        ]);
+                    }
+                }
+            } elseif (!empty($data['image_url'])) {
+                // If only one image is provided, save it to vehicle_images table as well
+                $imageStmt = $this->db->prepare("INSERT INTO vehicle_images (vehicle_id, image_url, display_order) VALUES (:vehicle_id, :image_url, 0)");
+                $imageStmt->execute([
+                    ':vehicle_id' => $id,
+                    ':image_url' => $data['image_url']
+                ]);
+            }
+
             // Log admin action
             $this->logAdminAction('create', "Vehicle created: {$data['name']} (ID: {$id})");
 
@@ -704,16 +836,23 @@ class RentcarsAPI {
         }
     }
 
-    private function updateVehicle($id, $data) {
+    private function updateVehicle($id, $data)
+    {
         try {
             $fields = [];
             $params = [':id' => $id];
 
-            $allowed = ['name', 'type', 'price_per_day', 'image_url', 'passengers', 'transmission', 'air_conditioning', 'doors', 'rating', 'review_count', 'available', 'description'];
+            $allowed = ['name', 'type', 'price_per_day', 'image_url', 'passengers', 'transmission', 'air_conditioning', 'doors', 'rating', 'review_count', 'available', 'description', 'available_from', 'available_to'];
             foreach ($allowed as $field) {
                 if (isset($data[$field])) {
                     $fields[] = "$field = :$field";
-                    $params[":$field"] = $field === 'air_conditioning' || $field === 'available' ? (int)$data[$field] : $data[$field];
+                    if ($field === 'air_conditioning' || $field === 'available') {
+                        $params[":$field"] = (int) $data[$field];
+                    } elseif ($field === 'available_from' || $field === 'available_to') {
+                        $params[":$field"] = !empty($data[$field]) ? $data[$field] : null;
+                    } else {
+                        $params[":$field"] = $data[$field];
+                    }
                 }
             }
 
@@ -727,6 +866,27 @@ class RentcarsAPI {
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
 
+            // Update images if provided
+            if (isset($data['images']) && is_array($data['images'])) {
+                // Delete existing images
+                $deleteStmt = $this->db->prepare("DELETE FROM vehicle_images WHERE vehicle_id = :id");
+                $deleteStmt->execute([':id' => $id]);
+
+                // Insert new images
+                if (!empty($data['images'])) {
+                    $imageStmt = $this->db->prepare("INSERT INTO vehicle_images (vehicle_id, image_url, display_order) VALUES (:vehicle_id, :image_url, :display_order)");
+                    foreach ($data['images'] as $index => $imageUrl) {
+                        if (!empty($imageUrl)) {
+                            $imageStmt->execute([
+                                ':vehicle_id' => $id,
+                                ':image_url' => $imageUrl,
+                                ':display_order' => $index
+                            ]);
+                        }
+                    }
+                }
+            }
+
             // Log admin action
             $this->logAdminAction('update', "Vehicle #{$id} updated");
 
@@ -737,7 +897,8 @@ class RentcarsAPI {
         }
     }
 
-    private function deleteVehicle($id) {
+    private function deleteVehicle($id)
+    {
         try {
             $stmt = $this->db->prepare("DELETE FROM vehicles WHERE id = :id");
             $stmt->execute([':id' => $id]);
@@ -758,7 +919,8 @@ class RentcarsAPI {
         }
     }
 
-    private function logAdminAction($action, $description = '') {
+    private function logAdminAction($action, $description = '')
+    {
         // Check if admin session exists
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
@@ -787,7 +949,8 @@ class RentcarsAPI {
         }
     }
 
-    private function logClientAction($client_id, $client_phone, $action, $description = '', $metadata = null) {
+    private function logClientAction($client_id, $client_phone, $action, $description = '', $metadata = null)
+    {
         try {
             $ip_address = $_SERVER['REMOTE_ADDR'] ?? '';
             $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
@@ -813,7 +976,8 @@ class RentcarsAPI {
     }
 
     // Booking methods
-    private function createBooking($data) {
+    private function createBooking($data)
+    {
         try {
             $required = ['vehicle_id', 'customer_name', 'customer_email', 'pickup_location', 'pickup_date', 'return_date'];
             foreach ($required as $field) {
@@ -884,12 +1048,12 @@ class RentcarsAPI {
             ]);
 
             $id = $this->db->lastInsertId();
-            
+
             // Log admin action if admin is logged in
             if (isset($_SESSION['admin_id'])) {
                 $this->logAdminAction('create', "Booking created: #{$id} for {$data['customer_name']} ({$data['customer_phone']})");
             }
-            
+
             echo json_encode([
                 'success' => true,
                 'message' => 'Booking created successfully',
@@ -907,7 +1071,8 @@ class RentcarsAPI {
         }
     }
 
-    private function getBookings() {
+    private function getBookings()
+    {
         try {
             $email = $_GET['email'] ?? null;
             $sql = "SELECT b.*, v.name as vehicle_name, v.image_url as vehicle_image FROM bookings b LEFT JOIN vehicles v ON b.vehicle_id = v.id WHERE 1=1";
@@ -922,20 +1087,35 @@ class RentcarsAPI {
 
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
-            $bookings = $stmt->fetchAll();
+            $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+            // Ensure all bookings have proper format
             foreach ($bookings as &$booking) {
-                $booking['total_price'] = (float)$booking['total_price'];
+                $booking['id'] = (int) $booking['id'];
+                $booking['vehicle_id'] = $booking['vehicle_id'] ? (int) $booking['vehicle_id'] : null;
+                $booking['total_price'] = (float) $booking['total_price'];
+                $booking['status'] = $booking['status'] ?? 'pending';
+                // Ensure dates are properly formatted
+                if (isset($booking['pickup_date'])) {
+                    $booking['pickup_date'] = date('Y-m-d H:i:s', strtotime($booking['pickup_date']));
+                }
+                if (isset($booking['return_date'])) {
+                    $booking['return_date'] = date('Y-m-d H:i:s', strtotime($booking['return_date']));
+                }
+                if (isset($booking['created_at'])) {
+                    $booking['created_at'] = date('Y-m-d H:i:s', strtotime($booking['created_at']));
+                }
             }
 
-            echo json_encode(['success' => true, 'data' => $bookings]);
+            echo json_encode(['success' => true, 'data' => $bookings], JSON_UNESCAPED_UNICODE);
         } catch (PDOException $e) {
             http_response_code(500);
             echo json_encode(['error' => 'Failed to fetch bookings: ' . $e->getMessage()]);
         }
     }
 
-    private function getBooking($id) {
+    private function getBooking($id)
+    {
         try {
             $stmt = $this->db->prepare("
                 SELECT b.*, v.name as vehicle_name, v.image_url as vehicle_image 
@@ -952,7 +1132,7 @@ class RentcarsAPI {
                 return;
             }
 
-            $booking['total_price'] = (float)$booking['total_price'];
+            $booking['total_price'] = (float) $booking['total_price'];
 
             echo json_encode(['success' => true, 'data' => $booking]);
         } catch (PDOException $e) {
@@ -961,7 +1141,8 @@ class RentcarsAPI {
         }
     }
 
-    private function updateBooking($id, $data) {
+    private function updateBooking($id, $data)
+    {
         try {
             $fields = [];
             $params = [':id' => $id];
@@ -995,7 +1176,8 @@ class RentcarsAPI {
         }
     }
 
-    private function deleteBooking($id) {
+    private function deleteBooking($id)
+    {
         try {
             $stmt = $this->db->prepare("DELETE FROM bookings WHERE id = :id");
             $stmt->execute([':id' => $id]);
@@ -1017,13 +1199,14 @@ class RentcarsAPI {
     }
 
     // Contact methods
-    private function getContacts() {
+    private function getContacts()
+    {
         try {
             $stmt = $this->db->query("SELECT * FROM contacts ORDER BY display_order ASC, created_at DESC");
             $contacts = $stmt->fetchAll();
 
             foreach ($contacts as &$contact) {
-                $contact['is_active'] = (bool)$contact['is_active'];
+                $contact['is_active'] = (bool) $contact['is_active'];
             }
 
             echo json_encode(['success' => true, 'data' => $contacts]);
@@ -1033,7 +1216,8 @@ class RentcarsAPI {
         }
     }
 
-    private function getContact($id) {
+    private function getContact($id)
+    {
         try {
             $stmt = $this->db->prepare("SELECT * FROM contacts WHERE id = :id");
             $stmt->execute([':id' => $id]);
@@ -1045,7 +1229,7 @@ class RentcarsAPI {
                 return;
             }
 
-            $contact['is_active'] = (bool)$contact['is_active'];
+            $contact['is_active'] = (bool) $contact['is_active'];
 
             echo json_encode(['success' => true, 'data' => $contact]);
         } catch (PDOException $e) {
@@ -1054,7 +1238,8 @@ class RentcarsAPI {
         }
     }
 
-    private function createContact($data) {
+    private function createContact($data)
+    {
         try {
             $required = ['contact_type', 'label', 'value'];
             foreach ($required as $field) {
@@ -1075,12 +1260,12 @@ class RentcarsAPI {
                 ':label' => $data['label'],
                 ':value' => $data['value'],
                 ':icon' => $data['icon'] ?? $this->getDefaultIcon($data['contact_type']),
-                ':is_active' => isset($data['is_active']) ? (int)$data['is_active'] : 1,
+                ':is_active' => isset($data['is_active']) ? (int) $data['is_active'] : 1,
                 ':display_order' => $data['display_order'] ?? 0
             ]);
 
             $id = $this->db->lastInsertId();
-            
+
             // Log admin action
             $this->logAdminAction('create', "Contact created: {$data['label']} (ID: {$id})");
 
@@ -1091,7 +1276,8 @@ class RentcarsAPI {
         }
     }
 
-    private function updateContact($id, $data) {
+    private function updateContact($id, $data)
+    {
         try {
             $fields = [];
             $params = [':id' => $id];
@@ -1100,7 +1286,7 @@ class RentcarsAPI {
             foreach ($allowed as $field) {
                 if (isset($data[$field])) {
                     $fields[] = "$field = :$field";
-                    $params[":$field"] = $field === 'is_active' ? (int)$data[$field] : $data[$field];
+                    $params[":$field"] = $field === 'is_active' ? (int) $data[$field] : $data[$field];
                 }
             }
 
@@ -1124,7 +1310,8 @@ class RentcarsAPI {
         }
     }
 
-    private function deleteContact($id) {
+    private function deleteContact($id)
+    {
         try {
             $stmt = $this->db->prepare("DELETE FROM contacts WHERE id = :id");
             $stmt->execute([':id' => $id]);
@@ -1146,7 +1333,8 @@ class RentcarsAPI {
     }
 
     // Client methods
-    private function createOrUpdateClient($data, $booking_total = 0) {
+    private function createOrUpdateClient($data, $booking_total = 0)
+    {
         try {
             $name = $data['customer_name'] ?? '';
             $phone = $data['customer_phone'] ?? '';
@@ -1165,7 +1353,7 @@ class RentcarsAPI {
             if ($existing) {
                 // Update existing client
                 $client_id = $existing['id'];
-                
+
                 // Update password if provided
                 if (!empty($password)) {
                     $password_hash = password_hash($password, PASSWORD_DEFAULT);
@@ -1207,7 +1395,7 @@ class RentcarsAPI {
                     $password = bin2hex(random_bytes(4)); // Simple 8-char password
                 }
                 $password_hash = password_hash($password, PASSWORD_DEFAULT);
-                
+
                 $stmt = $this->db->prepare("
                     INSERT INTO clients (name, phone, email, password_hash, total_bookings, total_spent, last_booking_date)
                     VALUES (:name, :phone, :email, :password_hash, 1, :booking_total, NOW())
@@ -1229,7 +1417,8 @@ class RentcarsAPI {
         }
     }
 
-    private function getClients() {
+    private function getClients()
+    {
         try {
             $stmt = $this->db->query("
                 SELECT id, name, phone, email, total_bookings, total_spent, last_booking_date, last_login_date, is_active, created_at
@@ -1239,9 +1428,9 @@ class RentcarsAPI {
             $clients = $stmt->fetchAll();
 
             foreach ($clients as &$client) {
-                $client['total_bookings'] = (int)$client['total_bookings'];
-                $client['total_spent'] = (float)$client['total_spent'];
-                $client['is_active'] = (bool)$client['is_active'];
+                $client['total_bookings'] = (int) $client['total_bookings'];
+                $client['total_spent'] = (float) $client['total_spent'];
+                $client['is_active'] = (bool) $client['is_active'];
             }
 
             echo json_encode(['success' => true, 'data' => $clients]);
@@ -1251,7 +1440,8 @@ class RentcarsAPI {
         }
     }
 
-    private function getClient($id) {
+    private function getClient($id)
+    {
         try {
             $stmt = $this->db->prepare("
                 SELECT id, name, phone, email, address, city, country, total_bookings, total_spent, 
@@ -1267,9 +1457,9 @@ class RentcarsAPI {
                 return;
             }
 
-            $client['total_bookings'] = (int)$client['total_bookings'];
-            $client['total_spent'] = (float)$client['total_spent'];
-            $client['is_active'] = (bool)$client['is_active'];
+            $client['total_bookings'] = (int) $client['total_bookings'];
+            $client['total_spent'] = (float) $client['total_spent'];
+            $client['is_active'] = (bool) $client['is_active'];
             echo json_encode(['success' => true, 'data' => $client]);
         } catch (PDOException $e) {
             http_response_code(500);
@@ -1277,7 +1467,8 @@ class RentcarsAPI {
         }
     }
 
-    private function updateClient($id, $data) {
+    private function updateClient($id, $data)
+    {
         try {
             $updates = [];
             $params = [':id' => $id];
@@ -1325,7 +1516,8 @@ class RentcarsAPI {
         }
     }
 
-    private function deleteClient($id) {
+    private function deleteClient($id)
+    {
         try {
             $stmt = $this->db->prepare("DELETE FROM clients WHERE id = :id");
             $stmt->execute([':id' => $id]);
@@ -1347,17 +1539,18 @@ class RentcarsAPI {
     }
 
     // Admin management methods
-    private function getAdmins() {
+    private function getAdmins()
+    {
         try {
             $stmt = $this->db->query("SELECT id, email, full_name, role, is_active, created_at FROM users WHERE role = 'admin' ORDER BY created_at DESC");
             $admins = $stmt->fetchAll();
-            
+
             // Remove password hashes from response
             foreach ($admins as &$admin) {
                 unset($admin['password_hash']);
-                $admin['is_active'] = (bool)$admin['is_active'];
+                $admin['is_active'] = (bool) $admin['is_active'];
             }
-            
+
             echo json_encode(['success' => true, 'data' => $admins]);
         } catch (PDOException $e) {
             http_response_code(500);
@@ -1365,7 +1558,8 @@ class RentcarsAPI {
         }
     }
 
-    private function getAdmin($id) {
+    private function getAdmin($id)
+    {
         try {
             $stmt = $this->db->prepare("SELECT id, email, full_name, role, is_active, created_at FROM users WHERE id = :id AND role = 'admin'");
             $stmt->execute([':id' => $id]);
@@ -1378,8 +1572,8 @@ class RentcarsAPI {
             }
 
             unset($admin['password_hash']);
-            $admin['is_active'] = (bool)$admin['is_active'];
-            
+            $admin['is_active'] = (bool) $admin['is_active'];
+
             echo json_encode(['success' => true, 'data' => $admin]);
         } catch (PDOException $e) {
             http_response_code(500);
@@ -1387,13 +1581,14 @@ class RentcarsAPI {
         }
     }
 
-    private function createAdmin($data) {
+    private function createAdmin($data)
+    {
         try {
             // Check if session exists and user is admin
             if (session_status() === PHP_SESSION_NONE) {
                 session_start();
             }
-            
+
             if (!isset($_SESSION['admin_id'])) {
                 http_response_code(401);
                 echo json_encode(['error' => 'Unauthorized - Please log in again. Session not found.']);
@@ -1431,11 +1626,11 @@ class RentcarsAPI {
                 ':email' => $data['email'],
                 ':password_hash' => $password_hash,
                 ':full_name' => $data['full_name'],
-                ':is_active' => isset($data['is_active']) ? (int)$data['is_active'] : 1
+                ':is_active' => isset($data['is_active']) ? (int) $data['is_active'] : 1
             ]);
 
             $id = $this->db->lastInsertId();
-            
+
             // Log admin action
             $this->logAdminAction('create', "Admin created: {$data['email']} (ID: {$id})");
 
@@ -1446,13 +1641,14 @@ class RentcarsAPI {
         }
     }
 
-    private function updateAdmin($id, $data) {
+    private function updateAdmin($id, $data)
+    {
         try {
             // Check if session exists and user is admin
             if (session_status() === PHP_SESSION_NONE) {
                 session_start();
             }
-            
+
             if (!isset($_SESSION['admin_id'])) {
                 http_response_code(401);
                 echo json_encode(['error' => 'Unauthorized']);
@@ -1483,7 +1679,7 @@ class RentcarsAPI {
 
             if (isset($data['is_active'])) {
                 $fields[] = "is_active = :is_active";
-                $params[':is_active'] = (int)$data['is_active'];
+                $params[':is_active'] = (int) $data['is_active'];
             }
 
             if (isset($data['password']) && !empty($data['password'])) {
@@ -1517,13 +1713,14 @@ class RentcarsAPI {
         }
     }
 
-    private function deleteAdmin($id) {
+    private function deleteAdmin($id)
+    {
         try {
             // Check if session exists and user is admin
             if (session_status() === PHP_SESSION_NONE) {
                 session_start();
             }
-            
+
             if (!isset($_SESSION['admin_id'])) {
                 http_response_code(401);
                 echo json_encode(['error' => 'Unauthorized']);
@@ -1556,13 +1753,14 @@ class RentcarsAPI {
         }
     }
 
-    private function changeAdminPassword($data) {
+    private function changeAdminPassword($data)
+    {
         try {
             // Check if session exists
             if (session_status() === PHP_SESSION_NONE) {
                 session_start();
             }
-            
+
             if (!isset($_SESSION['admin_id'])) {
                 http_response_code(401);
                 echo json_encode(['error' => 'Unauthorized']);
@@ -1624,7 +1822,252 @@ class RentcarsAPI {
         }
     }
 
-    private function getDefaultIcon($type) {
+    // Car Brands methods
+    private function getCarBrands()
+    {
+        try {
+            $stmt = $this->db->query("
+                SELECT * FROM car_brands 
+                WHERE is_active = 1 
+                ORDER BY display_order ASC, name ASC
+            ");
+            $brands = $stmt->fetchAll();
+            echo json_encode($brands);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to fetch car brands: ' . $e->getMessage()]);
+        }
+    }
+
+    private function getCarBrand($id)
+    {
+        try {
+            $stmt = $this->db->prepare("SELECT * FROM car_brands WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+            $brand = $stmt->fetch();
+
+            if (!$brand) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Car brand not found']);
+                return;
+            }
+
+            echo json_encode($brand);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to fetch car brand: ' . $e->getMessage()]);
+        }
+    }
+
+    private function createCarBrand($data)
+    {
+        try {
+            // Check authentication
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+
+            if (!isset($_SESSION['admin_id'])) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Unauthorized']);
+                return;
+            }
+
+            // Validate required fields
+            $name = $data['name'] ?? '';
+            $logo_url = $data['logo_url'] ?? '';
+
+            if (empty($name) || empty($logo_url)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Name and logo_url are required']);
+                return;
+            }
+
+            // Insert new brand
+            $stmt = $this->db->prepare("
+                INSERT INTO car_brands (name, logo_url, display_order, is_active) 
+                VALUES (:name, :logo_url, :display_order, :is_active)
+            ");
+
+            $stmt->execute([
+                ':name' => $name,
+                ':logo_url' => $logo_url,
+                ':display_order' => $data['display_order'] ?? 0,
+                ':is_active' => isset($data['is_active']) ? (int) $data['is_active'] : 1
+            ]);
+
+            $id = $this->db->lastInsertId();
+
+            // Log admin action
+            $this->logAdminAction('create', "Car brand '{$name}' created (ID: {$id})");
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Car brand created successfully',
+                'id' => $id
+            ]);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to create car brand: ' . $e->getMessage()]);
+        }
+    }
+
+    private function updateCarBrand($id, $data)
+    {
+        try {
+            // Check authentication
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+
+            if (!isset($_SESSION['admin_id'])) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Unauthorized']);
+                return;
+            }
+
+            // Build update query
+            $allowed = ['name', 'logo_url', 'display_order', 'is_active'];
+            $updates = [];
+            $params = [':id' => $id];
+
+            foreach ($allowed as $field) {
+                if (isset($data[$field])) {
+                    $updates[] = "{$field} = :{$field}";
+                    $params[":{$field}"] = $data[$field];
+                }
+            }
+
+            if (empty($updates)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'No fields to update']);
+                return;
+            }
+
+            $sql = "UPDATE car_brands SET " . implode(', ', $updates) . " WHERE id = :id";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+
+            if ($stmt->rowCount() === 0) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Car brand not found']);
+                return;
+            }
+
+            // Log admin action
+            $name = $data['name'] ?? "Brand #{$id}";
+            $this->logAdminAction('update', "Car brand '{$name}' updated (ID: {$id})");
+
+            echo json_encode(['success' => true, 'message' => 'Car brand updated successfully']);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to update car brand: ' . $e->getMessage()]);
+        }
+    }
+
+    private function deleteCarBrand($id)
+    {
+        try {
+            // Check authentication
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+
+            if (!isset($_SESSION['admin_id'])) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Unauthorized']);
+                return;
+            }
+
+            // Get brand name for logging
+            $stmt = $this->db->prepare("SELECT name FROM car_brands WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+            $brand = $stmt->fetch();
+
+            // Delete brand
+            $stmt = $this->db->prepare("DELETE FROM car_brands WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+
+            if ($stmt->rowCount() === 0) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Car brand not found']);
+                return;
+            }
+
+            // Log admin action
+            $name = $brand ? $brand['name'] : "Brand #{$id}";
+            $this->logAdminAction('delete', "Car brand '{$name}' deleted (ID: {$id})");
+
+            echo json_encode(['success' => true, 'message' => 'Car brand deleted successfully']);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to delete car brand: ' . $e->getMessage()]);
+        }
+    }
+
+    private function insertSampleCarBrands()
+    {
+        $brands = [
+            [
+                'name' => 'Mercedes-Benz',
+                'logo_url' => 'https://logos-world.net/wp-content/uploads/2020/05/Mercedes-Benz-Logo.png',
+                'display_order' => 1,
+                'is_active' => 1
+            ],
+            [
+                'name' => 'Dacia',
+                'logo_url' => 'https://logos-world.net/wp-content/uploads/2021/03/Dacia-Logo.png',
+                'display_order' => 2,
+                'is_active' => 1
+            ],
+            [
+                'name' => 'Opel',
+                'logo_url' => 'https://logos-world.net/wp-content/uploads/2020/05/Opel-Logo.png',
+                'display_order' => 3,
+                'is_active' => 1
+            ],
+            [
+                'name' => 'Audi',
+                'logo_url' => 'https://logos-world.net/wp-content/uploads/2020/04/Audi-Logo.png',
+                'display_order' => 4,
+                'is_active' => 1
+            ],
+            [
+                'name' => 'Kia',
+                'logo_url' => 'https://logos-world.net/wp-content/uploads/2020/11/Kia-Logo.png',
+                'display_order' => 5,
+                'is_active' => 1
+            ],
+            [
+                'name' => 'Renault',
+                'logo_url' => 'https://logos-world.net/wp-content/uploads/2020/04/Renault-Logo.png',
+                'display_order' => 6,
+                'is_active' => 1
+            ],
+            [
+                'name' => 'Ford',
+                'logo_url' => 'https://logos-world.net/wp-content/uploads/2020/05/Ford-Logo.png',
+                'display_order' => 7,
+                'is_active' => 1
+            ]
+        ];
+
+        $stmt = $this->db->prepare("
+            INSERT INTO car_brands (name, logo_url, display_order, is_active) 
+            VALUES (:name, :logo_url, :display_order, :is_active)
+        ");
+
+        foreach ($brands as $brand) {
+            try {
+                $stmt->execute($brand);
+            } catch (PDOException $e) {
+                error_log("Failed to insert brand {$brand['name']}: " . $e->getMessage());
+            }
+        }
+    }
+
+    private function getDefaultIcon($type)
+    {
         $icons = [
             'phone' => 'fas fa-phone',
             'email' => 'fas fa-envelope',
@@ -1650,4 +2093,3 @@ try {
     echo json_encode(['error' => 'Server error: ' . $e->getMessage()]);
 }
 ?>
-

@@ -33,6 +33,22 @@
           <button class="image-fullscreen" onclick="openImageFullscreen()" aria-label="Voir en plein écran">
             <i class="fas fa-expand"></i>
           </button>
+          <!-- Image Gallery Navigation -->
+          <div id="image-gallery-nav" class="image-gallery-nav" style="display: none;">
+            <button class="gallery-nav-btn prev" onclick="changeImage(-1)" aria-label="Image précédente">
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="gallery-nav-btn next" onclick="changeImage(1)" aria-label="Image suivante">
+              <i class="fas fa-chevron-right"></i>
+            </button>
+            <div class="gallery-indicator">
+              <span id="current-image-num">1</span> / <span id="total-images-num">1</span>
+            </div>
+          </div>
+        </div>
+        <!-- Image Thumbnails Gallery -->
+        <div id="vehicle-images-thumbnails" class="vehicle-images-thumbnails" style="display: none;">
+          <!-- Thumbnails will be inserted here -->
         </div>
       </section>
 

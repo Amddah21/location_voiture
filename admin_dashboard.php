@@ -14,23 +14,31 @@ $stats = $auth->getStats();
 ?>
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Rentcars</title>
+    <title>Admin Dashboard - Cars Location voiture</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="admin_styles.css">
 </head>
+
 <body class="admin-dashboard">
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
             <div class="logo-container">
-                <img src="logo/logo1.png" alt="Rentcars Logo" class="logo">
-                <h2>Rentcars</h2>
+                <img src="logo/logo1.png" alt="Cars Location voiture Logo" class="logo"
+                    onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCAxMDAgNTAiPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iNTAiIGZpbGw9IiMyRjlFNDQiIHJ4PSI0Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iI2ZmZiI+Q2FyczwvdGV4dD48L3N2Zz4=';">
+                <div class="logo-text">
+                    <span class="logo-main">Cars</span>
+                    <span class="logo-subtitle">Location voiture</span>
+                </div>
             </div>
         </div>
 
@@ -54,6 +62,10 @@ $stats = $auth->getStats();
             <a href="#contacts" class="nav-item" data-section="contacts">
                 <i class="fas fa-address-book"></i>
                 <span>Contacts</span>
+            </a>
+            <a href="#brands" class="nav-item" data-section="brands">
+                <i class="fas fa-tags"></i>
+                <span>Marques</span>
             </a>
             <a href="#clients" class="nav-item" data-section="clients">
                 <i class="fas fa-users"></i>
@@ -92,10 +104,25 @@ $stats = $auth->getStats();
             </div>
             <div class="top-bar-right">
                 <div class="notifications">
-                    <button class="notification-btn">
+                    <button class="notification-btn" id="notification-btn">
                         <i class="fas fa-bell"></i>
-                        <span class="badge">3</span>
+                        <span class="badge" id="notification-badge">0</span>
                     </button>
+                    <div class="notification-dropdown" id="notification-dropdown">
+                        <div class="notification-header">
+                            <h3>Notifications</h3>
+                            <button class="notification-close-btn" onclick="closeNotifications()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="notification-list" id="notification-list">
+                            <div class="notification-loading">Chargement...</div>
+                        </div>
+                        <div class="notification-footer">
+                            <a href="#" onclick="showSection('bookings'); closeNotifications(); return false;">Voir
+                                toutes les réservations</a>
+                        </div>
+                    </div>
                 </div>
                 <a href="index.php" class="btn-view-site" target="_blank">
                     <i class="fas fa-external-link-alt"></i>
@@ -138,7 +165,8 @@ $stats = $auth->getStats();
                     </div>
                     <div class="stat-content">
                         <h3>Revenus totaux</h3>
-                        <p class="stat-value" data-target="<?php echo number_format($stats['total_revenue'] ?? 0, 0, ',', ' '); ?>">0</p>
+                        <p class="stat-value"
+                            data-target="<?php echo number_format($stats['total_revenue'] ?? 0, 0, ',', ' '); ?>">0</p>
                         <span class="stat-label">DH</span>
                     </div>
                     <div class="stat-wave"></div>
@@ -150,7 +178,8 @@ $stats = $auth->getStats();
                     </div>
                     <div class="stat-content">
                         <h3>Ce mois</h3>
-                        <p class="stat-value" data-target="<?php echo number_format($stats['month_revenue'] ?? 0, 0, ',', ' '); ?>">0</p>
+                        <p class="stat-value"
+                            data-target="<?php echo number_format($stats['month_revenue'] ?? 0, 0, ',', ' '); ?>">0</p>
                         <span class="stat-label">DH de revenus</span>
                     </div>
                     <div class="stat-wave"></div>
@@ -285,6 +314,36 @@ $stats = $auth->getStats();
             </div>
         </section>
 
+        <!-- Brands Section -->
+        <section id="brands-section" class="content-section">
+            <div class="section-header">
+                <h2>Gestion des marques</h2>
+                <button class="btn-primary" onclick="addBrand()">
+                    <i class="fas fa-plus"></i>
+                    <span>Ajouter une marque</span>
+                </button>
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="brands-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Logo</th>
+                            <th>Nom</th>
+                            <th>Ordre</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="brands-tbody">
+                        <tr>
+                            <td colspan="6" class="loading">Chargement...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <!-- Clients Section -->
         <section id="clients-section" class="content-section">
             <div class="section-header">
@@ -326,11 +385,13 @@ $stats = $auth->getStats();
                     <div class="settings-form">
                         <div class="form-group">
                             <label>Nom complet</label>
-                            <input type="text" id="admin-name" value="<?php echo htmlspecialchars($admin['name']); ?>" readonly>
+                            <input type="text" id="admin-name" value="<?php echo htmlspecialchars($admin['name']); ?>"
+                                readonly>
                         </div>
                         <div class="form-group">
                             <label>Email</label>
-                            <input type="email" id="admin-email" value="<?php echo htmlspecialchars($admin['email']); ?>" readonly>
+                            <input type="email" id="admin-email"
+                                value="<?php echo htmlspecialchars($admin['email']); ?>" readonly>
                         </div>
                     </div>
                 </div>
@@ -346,7 +407,8 @@ $stats = $auth->getStats();
                         <div class="form-group">
                             <label for="new-password">Nouveau mot de passe *</label>
                             <input type="password" id="new-password" name="new_password" required minlength="6">
-                            <small style="color: #6b7280; display: block; margin-top: 0.25rem;">Minimum 6 caractères</small>
+                            <small style="color: #6b7280; display: block; margin-top: 0.25rem;">Minimum 6
+                                caractères</small>
                         </div>
                         <div class="form-group">
                             <label for="confirm-password">Confirmer le nouveau mot de passe *</label>
@@ -446,6 +508,7 @@ $stats = $auth->getStats();
                 opacity: 0;
                 transform: translateY(30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -678,5 +741,5 @@ $stats = $auth->getStats();
         }
     </style>
 </body>
-</html>
 
+</html>

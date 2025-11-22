@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDashboardData();
     setupEventListeners();
     animateStats();
+    loadNotifications(); // Load notifications on page load
     
     // Load vehicles if vehicles section is active
     if (currentSection === 'vehicles') {
@@ -79,6 +80,9 @@ function showSection(section) {
         case 'contacts':
             loadContacts();
             break;
+        case 'brands':
+            loadBrands();
+            break;
         case 'clients':
             loadClients();
             break;
@@ -101,6 +105,24 @@ function setupEventListeners() {
             filterBookings(e.target.value);
         });
     }
+    
+    // Notification button
+    const notificationBtn = document.getElementById('notification-btn');
+    if (notificationBtn) {
+        notificationBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleNotifications();
+        });
+    }
+    
+    // Close notifications when clicking outside
+    document.addEventListener('click', function(e) {
+        const dropdown = document.getElementById('notification-dropdown');
+        const btn = document.getElementById('notification-btn');
+        if (dropdown && btn && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+            closeNotifications();
+        }
+    });
 }
 
 // Logout
@@ -238,14 +260,21 @@ function renderVehicles(vehiclesList) {
                 <td>
                     <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                         <span class="status-badge ${vehicle.available ? 'status-active' : 'status-cancelled'}">
+                            <i class="fas fa-${vehicle.available ? 'check-circle' : 'times-circle'}" style="margin-right: 0.25rem;"></i>
                             ${vehicle.available ? 'Disponible' : 'Indisponible'}
                         </span>
                         ${vehicle.available_from || vehicle.available_to ? `
-                            <small style="color: var(--text-secondary); font-size: 0.75rem;">
-                                ${vehicle.available_from ? 'Du: ' + new Date(vehicle.available_from).toLocaleDateString('fr-FR') : ''}
-                                ${vehicle.available_from && vehicle.available_to ? '<br>' : ''}
-                                ${vehicle.available_to ? 'Au: ' + new Date(vehicle.available_to).toLocaleDateString('fr-FR') : ''}
-                            </small>
+                            <div style="background: ${vehicle.available ? '#fef3c7' : '#fee2e2'}; border-left: 3px solid ${vehicle.available ? '#f59e0b' : '#ef4444'}; padding: 0.5rem; border-radius: 4px; margin-top: 0.25rem;">
+                                <small style="color: ${vehicle.available ? '#92400e' : '#991b1b'}; font-size: 0.7rem; display: block; font-weight: 600;">
+                                    <i class="fas fa-calendar-times"></i> Période d'indisponibilité:
+                                </small>
+                                <small style="color: ${vehicle.available ? '#92400e' : '#991b1b'}; font-size: 0.65rem; display: block; margin-top: 0.25rem;">
+                                    ${vehicle.available_from ? 'Du: <strong>' + new Date(vehicle.available_from + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + '</strong>' : ''}
+                                    ${vehicle.available_from && vehicle.available_to ? ' ' : ''}
+                                    ${vehicle.available_to ? 'Au: <strong>' + new Date(vehicle.available_to + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + '</strong>' : ''}
+                                    ${vehicle.available_from && !vehicle.available_to ? ' (jusqu\'à nouvel ordre)' : ''}
+                                </small>
+                            </div>
                         ` : ''}
                         <button class="btn-icon" onclick="toggleVehicleAvailability(${vehicle.id}, ${vehicle.available ? 0 : 1})" 
                                 style="padding: 0.25rem 0.5rem; font-size: 0.75rem; margin-top: 0.25rem;"
@@ -278,21 +307,48 @@ function renderVehicles(vehiclesList) {
 async function loadBookings() {
     try {
         const response = await fetch('backend.php?action=bookings');
-        const data = await response.json();
         
-        if (data.success) {
-            bookings = data.data;
-            renderBookings(bookings);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Bookings API response:', data); // Debug log
+        
+        if (data.success && data.data) {
+            // Ensure data.data is an array
+            if (Array.isArray(data.data)) {
+                bookings = data.data;
+                console.log('Loaded bookings:', bookings.length); // Debug log
+                renderBookings(bookings);
+                // Update notifications when bookings are loaded
+                loadNotifications();
+            } else {
+                console.error('Bookings data is not an array:', data.data);
+                document.getElementById('bookings-tbody').innerHTML = 
+                    '<tr><td colspan="7" class="error">Erreur: Format de données invalide</td></tr>';
+            }
+        } else {
+            console.error('API returned error:', data);
+            document.getElementById('bookings-tbody').innerHTML = 
+                `<tr><td colspan="7" class="error">${data.error || 'Erreur lors du chargement'}</td></tr>`;
         }
     } catch (error) {
         console.error('Error loading bookings:', error);
         document.getElementById('bookings-tbody').innerHTML = 
-            '<tr><td colspan="7" class="loading">Erreur lors du chargement</td></tr>';
+            `<tr><td colspan="7" class="error">Erreur: ${error.message}</td></tr>`;
     }
 }
 
 function renderBookings(bookingsList) {
     const tbody = document.getElementById('bookings-tbody');
+    
+    // Ensure bookingsList is an array
+    if (!Array.isArray(bookingsList)) {
+        console.error('Bookings data is not an array:', bookingsList);
+        tbody.innerHTML = '<tr><td colspan="7" class="error">Erreur: Format de données invalide</td></tr>';
+        return;
+    }
     
     if (bookingsList.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="loading">Aucune réservation trouvée</td></tr>';
@@ -331,14 +387,16 @@ function renderBookings(bookingsList) {
                         <strong>Départ:</strong> ${pickupDate.toLocaleDateString('fr-FR', { 
                             day: '2-digit', 
                             month: 'short', 
-                            year: 'numeric',
+                            year: 'numeric'
+                        })} ${pickupDate.toLocaleTimeString('fr-FR', {
                             hour: '2-digit',
                             minute: '2-digit'
                         })}<br>
                         <strong>Retour:</strong> ${returnDate.toLocaleDateString('fr-FR', { 
                             day: '2-digit', 
                             month: 'short', 
-                            year: 'numeric',
+                            year: 'numeric'
+                        })} ${returnDate.toLocaleTimeString('fr-FR', {
                             hour: '2-digit',
                             minute: '2-digit'
                         })}<br>
@@ -530,33 +588,54 @@ function showVehicleModal(vehicle = null) {
         document.getElementById('vehicle-available').checked = vehicle.available !== false;
         
         // Set availability dates
+        const fromDateInput = document.getElementById('vehicle-available-from');
+        const toDateInput = document.getElementById('vehicle-available-to');
+        const today = new Date().toISOString().split('T')[0];
+        
         if (vehicle.available_from) {
-            const fromDate = new Date(vehicle.available_from);
-            document.getElementById('vehicle-available-from').value = fromDate.toISOString().split('T')[0];
+            const fromDate = new Date(vehicle.available_from + 'T00:00:00');
+            fromDateInput.value = fromDate.toISOString().split('T')[0];
+            // Update min date for "to" date
+            toDateInput.setAttribute('min', fromDateInput.value);
         } else {
-            document.getElementById('vehicle-available-from').value = '';
+            fromDateInput.value = '';
+            toDateInput.setAttribute('min', today);
         }
         
         if (vehicle.available_to) {
-            const toDate = new Date(vehicle.available_to);
-            document.getElementById('vehicle-available-to').value = toDate.toISOString().split('T')[0];
+            const toDate = new Date(vehicle.available_to + 'T00:00:00');
+            toDateInput.value = toDate.toISOString().split('T')[0];
         } else {
-            document.getElementById('vehicle-available-to').value = '';
+            toDateInput.value = '';
         }
         
-        // Show existing image if available
-        if (vehicle.image_url) {
-            updateImagePreview(vehicle.image_url);
-        } else {
-            resetImagePreview();
-        }
+        // Load existing images
+        vehicleImages = vehicle.images && Array.isArray(vehicle.images) ? [...vehicle.images] : 
+                       (vehicle.image_url ? [vehicle.image_url] : []);
+        updateImagesGallery();
     } else {
         // Add mode
         modalTitle.textContent = 'Ajouter un véhicule';
         form.dataset.mode = 'add';
         form.reset();
         document.getElementById('vehicle-available').checked = true;
-        resetImagePreview();
+        
+        // Reset date inputs
+        const today = new Date().toISOString().split('T')[0];
+        const fromDateInput = document.getElementById('vehicle-available-from');
+        const toDateInput = document.getElementById('vehicle-available-to');
+        if (fromDateInput) {
+            fromDateInput.value = '';
+            fromDateInput.setAttribute('min', today);
+        }
+        if (toDateInput) {
+            toDateInput.value = '';
+            toDateInput.setAttribute('min', today);
+        }
+        
+        // Reset images
+        vehicleImages = [];
+        updateImagesGallery();
     }
     
     document.getElementById('vehicle-modal').classList.add('show');
@@ -599,24 +678,29 @@ function createVehicleModal() {
                             <small style="color: #6b7280; display: block; margin-top: 0.25rem;">Les prix sont stockés en MAD (Dirham Marocain) et convertis automatiquement selon la devise sélectionnée</small>
                             <input type="number" id="vehicle-price" name="price_per_day" required step="0.01" min="0" placeholder="Ex: 12960.00">
                         </div>
-                        <div class="form-group">
-                            <label for="vehicle-image">Image du véhicule</label>
-                            <div class="image-upload-container">
-                                <input type="file" id="vehicle-image-file" name="image_file" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" style="display: none;">
-                                <div class="image-upload-preview" id="image-preview">
-                                    <div class="image-upload-placeholder">
-                                        <i class="fas fa-image"></i>
-                                        <span>Cliquez pour télécharger ou glisser-déposer</span>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label for="vehicle-images">
+                                <i class="fas fa-images" style="margin-right: 0.5rem; color: var(--primary);"></i>
+                                Images du véhicule (plusieurs images possibles)
+                            </label>
+                            <div class="images-upload-container" style="margin-top: 0.5rem;">
+                                <input type="file" id="vehicle-images-file" name="images_file" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" multiple style="display: none;">
+                                <div id="images-gallery" class="images-gallery" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                                    <!-- Images will be added here -->
+                                </div>
+                                <button type="button" class="btn-image-upload" onclick="document.getElementById('vehicle-images-file').click()" style="width: 100%; padding: 1rem; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem;">
+                                    <i class="fas fa-plus"></i> Ajouter des images
+                                </button>
+                                <div class="image-url-fallback" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--gray-300);">
+                                    <small style="display: block; margin-bottom: 0.5rem; color: #6b7280;">Ou ajoutez une URL d'image:</small>
+                                    <div style="display: flex; gap: 0.5rem;">
+                                        <input type="url" id="vehicle-image-url" placeholder="https://..." style="flex: 1; padding: 0.5rem; font-size: 0.875rem; border: 1px solid var(--gray-300); border-radius: 4px;">
+                                        <button type="button" onclick="addImageFromURL()" style="padding: 0.5rem 1rem; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                            <i class="fas fa-plus"></i> Ajouter
+                                        </button>
                                     </div>
                                 </div>
-                                <button type="button" class="btn-image-upload" onclick="document.getElementById('vehicle-image-file').click()">
-                                    <i class="fas fa-upload"></i> Choisir une image
-                                </button>
-                                <input type="hidden" id="vehicle-image" name="image_url">
-                                <div class="image-url-fallback" style="margin-top: 0.5rem;">
-                                    <small>Ou entrez une URL:</small>
-                                    <input type="url" id="vehicle-image-url" placeholder="https://..." style="margin-top: 0.25rem; width: 100%; padding: 0.5rem; font-size: 0.875rem;">
-                                </div>
+                                <input type="hidden" id="vehicle-images-data" name="images">
                             </div>
                         </div>
                     </div>
@@ -663,17 +747,36 @@ function createVehicleModal() {
                     
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="vehicle-available-from">Disponible à partir de (optionnel)</label>
+                            <label for="vehicle-available-from">
+                                <i class="fas fa-calendar-alt" style="margin-right: 0.5rem; color: var(--primary);"></i>
+                                Indisponible du (optionnel)
+                            </label>
                             <input type="date" id="vehicle-available-from" name="available_from" 
-                                   placeholder="Date de début de disponibilité">
-                            <small style="color: #6b7280; display: block; margin-top: 0.25rem;">Laisser vide si toujours disponible</small>
+                                   placeholder="Date de début d'indisponibilité"
+                                   style="padding: 0.75rem; border: 2px solid var(--gray-300); border-radius: 8px; font-size: 1rem; width: 100%;">
+                            <small style="color: #6b7280; display: block; margin-top: 0.25rem;">
+                                <i class="fas fa-info-circle"></i> Date de début de la période d'indisponibilité (ex: maintenance, réparation)
+                            </small>
                         </div>
                         <div class="form-group">
-                            <label for="vehicle-available-to">Disponible jusqu'au (optionnel)</label>
+                            <label for="vehicle-available-to">
+                                <i class="fas fa-calendar-check" style="margin-right: 0.5rem; color: var(--primary);"></i>
+                                Indisponible jusqu'au (optionnel)
+                            </label>
                             <input type="date" id="vehicle-available-to" name="available_to" 
-                                   placeholder="Date de fin de disponibilité">
-                            <small style="color: #6b7280; display: block; margin-top: 0.25rem;">Laisser vide si toujours disponible</small>
+                                   placeholder="Date de fin d'indisponibilité"
+                                   style="padding: 0.75rem; border: 2px solid var(--gray-300); border-radius: 8px; font-size: 1rem; width: 100%;">
+                            <small style="color: #6b7280; display: block; margin-top: 0.25rem;">
+                                <i class="fas fa-info-circle"></i> Date de fin de la période d'indisponibilité. Laisser vide pour période ouverte.
+                            </small>
                         </div>
+                    </div>
+                    <div class="form-group" style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
+                        <small style="color: #92400e; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fas fa-lightbulb"></i>
+                            <strong>Astuce:</strong> Utilisez ces dates pour bloquer des périodes d'indisponibilité (maintenance, réparation, etc.). 
+                            Si les deux dates sont vides, le véhicule est disponible selon son statut général ci-dessus.
+                        </small>
                     </div>
                     
                     <div class="modal-actions">
@@ -698,60 +801,157 @@ function createVehicleModal() {
     
     // Setup image upload handlers
     setupImageUpload();
+    
+    // Setup date validation
+    setupDateValidation();
 }
 
+function setupDateValidation() {
+    const fromDateInput = document.getElementById('vehicle-available-from');
+    const toDateInput = document.getElementById('vehicle-available-to');
+    
+    if (!fromDateInput || !toDateInput) return;
+    
+    // Set minimum date to today
+    const today = new Date().toISOString().split('T')[0];
+    fromDateInput.setAttribute('min', today);
+    toDateInput.setAttribute('min', today);
+    
+    // When "from" date changes, update "to" date minimum
+    fromDateInput.addEventListener('change', function() {
+        const fromDate = this.value;
+        if (fromDate) {
+            toDateInput.setAttribute('min', fromDate);
+            // If "to" date is before "from" date, clear it
+            if (toDateInput.value && toDateInput.value < fromDate) {
+                toDateInput.value = '';
+                showToast('La date de fin doit être après la date de début', 'error');
+            }
+        } else {
+            toDateInput.setAttribute('min', today);
+        }
+    });
+    
+    // Validate when "to" date changes
+    toDateInput.addEventListener('change', function() {
+        const toDate = this.value;
+        const fromDate = fromDateInput.value;
+        
+        if (toDate && fromDate && toDate < fromDate) {
+            this.value = '';
+            showToast('La date de fin doit être après la date de début', 'error');
+            this.style.borderColor = '#ef4444';
+            setTimeout(() => {
+                this.style.borderColor = '';
+            }, 3000);
+        } else {
+            this.style.borderColor = '';
+        }
+    });
+}
+
+// Store vehicle images array
+let vehicleImages = [];
+
 function setupImageUpload() {
-    const fileInput = document.getElementById('vehicle-image-file');
-    const imagePreview = document.getElementById('image-preview');
-    const imageUrlInput = document.getElementById('vehicle-image-url');
+    const fileInput = document.getElementById('vehicle-images-file');
+    const imagesGallery = document.getElementById('images-gallery');
     
-    if (!fileInput) return;
+    if (!fileInput || !imagesGallery) return;
     
-    // File input change
+    // File input change - handle multiple files
     fileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (file) {
+        const files = Array.from(e.target.files);
+        for (const file of files) {
             await uploadImage(file);
         }
+        // Reset input to allow same file selection
+        fileInput.value = '';
     });
     
     // Drag and drop
-    imagePreview.addEventListener('dragover', (e) => {
+    imagesGallery.addEventListener('dragover', (e) => {
         e.preventDefault();
-        imagePreview.classList.add('dragover');
+        imagesGallery.classList.add('dragover');
     });
     
-    imagePreview.addEventListener('dragleave', () => {
-        imagePreview.classList.remove('dragover');
+    imagesGallery.addEventListener('dragleave', () => {
+        imagesGallery.classList.remove('dragover');
     });
     
-    imagePreview.addEventListener('drop', async (e) => {
+    imagesGallery.addEventListener('drop', async (e) => {
         e.preventDefault();
-        imagePreview.classList.remove('dragover');
+        imagesGallery.classList.remove('dragover');
         
-        const file = e.dataTransfer.files[0];
-        if (file && file.type.startsWith('image/')) {
-            await uploadImage(file);
-        } else {
-            showToast('Veuillez déposer une image valide', 'error');
+        const files = Array.from(e.dataTransfer.files);
+        for (const file of files) {
+            if (file.type.startsWith('image/')) {
+                await uploadImage(file);
+            }
         }
     });
+}
+
+function addImageFromURL() {
+    const urlInput = document.getElementById('vehicle-image-url');
+    const url = urlInput.value.trim();
     
-    // Click to upload
-    imagePreview.addEventListener('click', () => {
-        fileInput.click();
-    });
-    
-    // URL input change
-    if (imageUrlInput) {
-        imageUrlInput.addEventListener('change', (e) => {
-            const url = e.target.value.trim();
-            if (url) {
-                document.getElementById('vehicle-image').value = url;
-                updateImagePreview(url);
-            }
-        });
+    if (!url) {
+        showToast('Veuillez entrer une URL valide', 'error');
+        return;
     }
+    
+    // Validate URL
+    try {
+        new URL(url);
+    } catch (e) {
+        showToast('URL invalide', 'error');
+        return;
+    }
+    
+    // Add image to gallery
+    addImageToGallery(url);
+    urlInput.value = '';
+}
+
+function addImageToGallery(imageUrl) {
+    if (vehicleImages.includes(imageUrl)) {
+        showToast('Cette image est déjà ajoutée', 'warning');
+        return;
+    }
+    
+    vehicleImages.push(imageUrl);
+    updateImagesGallery();
+}
+
+function removeImageFromGallery(imageUrl) {
+    vehicleImages = vehicleImages.filter(img => img !== imageUrl);
+    updateImagesGallery();
+}
+
+function updateImagesGallery() {
+    const gallery = document.getElementById('images-gallery');
+    if (!gallery) return;
+    
+    // Update hidden input
+    document.getElementById('vehicle-images-data').value = JSON.stringify(vehicleImages);
+    
+    if (vehicleImages.length === 0) {
+        gallery.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: #6b7280;"><i class="fas fa-images" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>Aucune image. Cliquez sur "Ajouter des images" pour commencer.</div>';
+        return;
+    }
+    
+    gallery.innerHTML = vehicleImages.map((imageUrl, index) => `
+        <div class="image-gallery-item" style="position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 2px solid var(--gray-300); background: var(--gray-100);">
+            <img src="${escapeHtml(imageUrl)}" alt="Image ${index + 1}" style="width: 100%; height: 100%; object-fit: cover;">
+            <button type="button" onclick="removeImageFromGallery('${escapeHtml(imageUrl)}')" style="position: absolute; top: 0.5rem; right: 0.5rem; background: rgba(239, 68, 68, 0.9); color: white; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                <i class="fas fa-times"></i>
+            </button>
+            <div style="position: absolute; bottom: 0.5rem; left: 0.5rem; background: rgba(0, 0, 0, 0.7); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">
+                Image ${index + 1}
+            </div>
+        </div>
+    `).join('');
 }
 
 async function uploadImage(file) {
@@ -770,9 +970,6 @@ async function uploadImage(file) {
     const formData = new FormData();
     formData.append('image', file);
     
-    const preview = document.getElementById('image-preview');
-    preview.innerHTML = '<div class="uploading"><i class="fas fa-spinner fa-spin"></i> Téléchargement...</div>';
-    
     try {
         const response = await fetch('upload_image.php', {
             method: 'POST',
@@ -782,18 +979,14 @@ async function uploadImage(file) {
         const data = await response.json();
         
         if (data.success) {
-            document.getElementById('vehicle-image').value = data.image_url;
-            document.getElementById('vehicle-image-url').value = '';
-            updateImagePreview(data.image_url);
+            addImageToGallery(data.image_url);
             showToast('Image téléchargée avec succès', 'success');
         } else {
             showToast(data.error || 'Erreur lors du téléchargement', 'error');
-            resetImagePreview();
         }
     } catch (error) {
         console.error('Upload error:', error);
         showToast('Erreur lors du téléchargement', 'error');
-        resetImagePreview();
     }
 }
 
@@ -838,16 +1031,26 @@ async function handleVehicleSubmit(e) {
     const mode = form.dataset.mode;
     const vehicleId = form.dataset.vehicleId;
     
-    // Get image URL from hidden input or URL input
-    const imageUrl = document.getElementById('vehicle-image').value || 
-                     document.getElementById('vehicle-image-url').value || 
-                     null;
+    // Get images array
+    const imagesData = document.getElementById('vehicle-images-data');
+    let images = [];
+    if (imagesData && imagesData.value) {
+        try {
+            images = JSON.parse(imagesData.value);
+        } catch (e) {
+            console.error('Error parsing images:', e);
+        }
+    }
+    
+    // Set primary image_url from first image if available
+    const imageUrl = images.length > 0 ? images[0] : null;
     
     const data = {
         name: document.getElementById('vehicle-name').value.trim(),
         type: document.getElementById('vehicle-type').value,
         price_per_day: parseFloat(document.getElementById('vehicle-price').value),
-        image_url: imageUrl || null,
+        image_url: imageUrl,
+        images: images,
         passengers: parseInt(document.getElementById('vehicle-passengers').value) || 4,
         transmission: document.getElementById('vehicle-transmission').value || 'Auto',
         doors: parseInt(document.getElementById('vehicle-doors').value) || 4,
@@ -862,6 +1065,16 @@ async function handleVehicleSubmit(e) {
     if (!data.name || !data.type || !data.price_per_day) {
         showToast('Veuillez remplir tous les champs obligatoires', 'error');
         return;
+    }
+    
+    // Validate date range
+    if (data.available_from && data.available_to) {
+        const fromDate = new Date(data.available_from);
+        const toDate = new Date(data.available_to);
+        if (toDate < fromDate) {
+            showToast('La date de fin doit être après la date de début', 'error');
+            return;
+        }
     }
     
     const submitBtn = form.querySelector('button[type="submit"]');
@@ -970,6 +1183,7 @@ async function updateBookingStatus(id, status) {
         if (data.success) {
             showToast('Statut mis à jour', 'success');
             loadBookings();
+            loadNotifications(); // Refresh notifications after status update
         } else {
             showToast('Erreur lors de la mise à jour', 'error');
         }
@@ -1324,6 +1538,151 @@ async function toggleVehicleAvailability(id, newStatus) {
 }
 
 window.toggleVehicleAvailability = toggleVehicleAvailability;
+// Notification functions
+let notifications = [];
+let unreadNotificationsCount = 0;
+
+async function loadNotifications() {
+    try {
+        const response = await fetch('backend.php?action=bookings');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.data && Array.isArray(data.data)) {
+            // Get pending and new bookings (created in last 7 days)
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            
+            // Sort by created_at descending and filter
+            const filteredBookings = data.data.filter(booking => {
+                if (!booking.created_at) return false;
+                const createdDate = new Date(booking.created_at);
+                return booking.status === 'pending' || createdDate >= sevenDaysAgo;
+            });
+            
+            // Sort by created_at descending
+            filteredBookings.sort((a, b) => {
+                const dateA = new Date(a.created_at || 0);
+                const dateB = new Date(b.created_at || 0);
+                return dateB - dateA;
+            });
+            
+            notifications = filteredBookings.slice(0, 10); // Limit to 10 most recent
+            
+            // Count unread (pending status only)
+            unreadNotificationsCount = data.data.filter(b => b.status === 'pending').length;
+            
+            updateNotificationBadge();
+            
+            // Note: renderNotifications() will be called by openNotifications() if dropdown is open
+        }
+    } catch (error) {
+        console.error('Error loading notifications:', error);
+    }
+}
+
+function renderNotifications() {
+    const list = document.getElementById('notification-list');
+    if (!list) return;
+    
+    if (notifications.length === 0) {
+        list.innerHTML = '<div class="notification-empty">Aucune notification</div>';
+        return;
+    }
+    
+    list.innerHTML = notifications.map(notification => {
+        const date = new Date(notification.created_at);
+        const vehicleName = notification.vehicle_name || 'Véhicule';
+        const status = notification.status || 'pending';
+        const isPending = status === 'pending';
+        
+        return `
+            <div class="notification-item ${isPending ? 'unread' : ''}" onclick="handleNotificationClick(${notification.id})">
+                <div class="notification-icon">
+                    <i class="fas fa-${isPending ? 'clock' : 'check-circle'}"></i>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-title">
+                        ${isPending ? '<strong>Nouvelle réservation</strong>' : 'Réservation ' + getStatusLabel(status)}
+                    </div>
+                    <div class="notification-text">
+                        ${escapeHtml(notification.customer_name)} - ${escapeHtml(vehicleName)}
+                    </div>
+                    <div class="notification-time">
+                        ${date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateNotificationBadge() {
+    const badge = document.getElementById('notification-badge');
+    if (badge) {
+        if (unreadNotificationsCount > 0) {
+            badge.textContent = unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+
+function toggleNotifications() {
+    const dropdown = document.getElementById('notification-dropdown');
+    if (!dropdown) return;
+    
+    if (dropdown.classList.contains('active')) {
+        closeNotifications();
+    } else {
+        openNotifications();
+    }
+}
+
+async function openNotifications() {
+    const dropdown = document.getElementById('notification-dropdown');
+    const btn = document.getElementById('notification-btn');
+    if (dropdown) {
+        dropdown.classList.add('active');
+        if (btn) {
+            btn.classList.add('active');
+        }
+        // Load notifications and render them
+        await loadNotifications();
+        renderNotifications();
+    }
+}
+
+function closeNotifications() {
+    const dropdown = document.getElementById('notification-dropdown');
+    const btn = document.getElementById('notification-btn');
+    if (dropdown) {
+        dropdown.classList.remove('active');
+    }
+    if (btn) {
+        btn.classList.remove('active');
+    }
+}
+
+function handleNotificationClick(bookingId) {
+    // Switch to bookings section and filter to this booking
+    showSection('bookings');
+    closeNotifications();
+    // Scroll to the booking in the table (if needed)
+    setTimeout(() => {
+        loadBookings();
+    }, 100);
+}
+
+// Make functions available globally
+window.closeNotifications = closeNotifications;
+window.toggleNotifications = toggleNotifications;
+window.handleNotificationClick = handleNotificationClick;
 window.updateBookingStatus = updateBookingStatus;
 window.closeVehicleModal = closeVehicleModal;
 window.removeImage = removeImage;
@@ -1792,10 +2151,501 @@ async function deleteAdmin(id) {
     }
 }
 
+// ============================================
+// BRANDS MANAGEMENT
+// ============================================
+let brands = [];
+
+async function loadBrands() {
+    try {
+        const response = await fetch('backend.php?action=car_brands', {
+            credentials: 'same-origin'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to load brands');
+        }
+        
+        brands = await response.json();
+        displayBrands();
+    } catch (error) {
+        console.error('Error loading brands:', error);
+        document.getElementById('brands-tbody').innerHTML = 
+            '<tr><td colspan="6" class="error">Erreur lors du chargement des marques</td></tr>';
+    }
+}
+
+function displayBrands() {
+    const tbody = document.getElementById('brands-tbody');
+    
+    if (!brands || brands.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">Aucune marque trouvée</td></tr>';
+        return;
+    }
+    
+    // Helper function to get absolute URL for images
+    function getImageUrl(relativeUrl) {
+        if (!relativeUrl) return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="50"%3E%3Crect fill="%23ddd" width="100" height="50"/%3E%3Ctext fill="%23999" font-family="Arial" font-size="10" x="50%" y="50%" text-anchor="middle" dy=".3em"%3ELogo%3C/text%3E%3C/svg%3E';
+        if (relativeUrl.startsWith('http://') || relativeUrl.startsWith('https://')) {
+            return relativeUrl;
+        }
+        const baseUrl = window.location.origin;
+        const pathname = window.location.pathname;
+        const basePath = pathname.substring(0, pathname.lastIndexOf('/')) || '';
+        if (relativeUrl.startsWith('/')) {
+            return baseUrl + relativeUrl;
+        } else {
+            return baseUrl + basePath + '/' + relativeUrl;
+        }
+    }
+    
+    // Create placeholder data URI for failed images
+    const placeholderDataUri = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="50"%3E%3Crect fill="%23f3f4f6" width="100" height="50"/%3E%3Ctext fill="%239ca3af" font-family="Arial" font-size="10" x="50%" y="50%" text-anchor="middle" dy=".3em"%3ELogo%3C/text%3E%3C/svg%3E';
+    
+    tbody.innerHTML = brands.map(brand => {
+        const imageUrl = getImageUrl(brand.logo_url);
+        return `
+        <tr>
+            <td>${brand.id}</td>
+            <td>
+                <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(brand.name)}" 
+                     class="brand-logo-preview" 
+                     onerror="this.onerror=null; this.src='${placeholderDataUri}'"
+                     loading="lazy">
+            </td>
+            <td><strong>${escapeHtml(brand.name)}</strong></td>
+            <td>${brand.display_order}</td>
+            <td>
+                <span class="badge ${brand.is_active ? 'badge-success' : 'badge-danger'}">
+                    ${brand.is_active ? 'Actif' : 'Inactif'}
+                </span>
+            </td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn-icon btn-edit" onclick="editBrand(${brand.id})" title="Modifier">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-icon btn-delete" onclick="deleteBrand(${brand.id})" title="Supprimer">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
+    }).join('');
+}
+
+function addBrand() {
+    showBrandModal();
+}
+
+function editBrand(id) {
+    const brand = brands.find(b => b.id == id);
+    if (!brand) {
+        showToast('Marque non trouvée', 'error');
+        return;
+    }
+    showBrandModal(brand);
+}
+
+function showBrandModal(brand = null) {
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.id = 'brand-modal';
+    modal.innerHTML = `
+        <div class="modal-overlay" onclick="closeBrandModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">${brand ? 'Modifier la marque' : 'Ajouter une marque'}</h2>
+                <button class="modal-close" onclick="closeBrandModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="brand-form" class="modal-form">
+                <div class="form-group">
+                    <label for="brand-name">Nom de la marque *</label>
+                    <input type="text" id="brand-name" name="name" required 
+                           value="${brand ? escapeHtml(brand.name) : ''}" 
+                           placeholder="Ex: Mercedes-Benz">
+                </div>
+                <div class="form-group">
+                    <label for="brand-logo-url">Logo de la marque *</label>
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <input type="file" id="brand-logo-file" name="logo_file" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml" style="display: none;">
+                            <button type="button" class="btn-secondary" onclick="document.getElementById('brand-logo-file').click()" style="flex: 1; padding: 0.75rem; background: var(--primary); color: white; border: none; border-radius: var(--radius-md); cursor: pointer; font-size: 0.95rem;">
+                                <i class="fas fa-upload"></i> Parcourir et télécharger
+                            </button>
+                        </div>
+                        <div style="padding: 0.75rem; background: var(--gray-50); border-radius: var(--radius-md); border: 1px solid var(--gray-200);">
+                            <small style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600;">OU</small>
+                            <label for="brand-logo-url" style="display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.875rem;">Entrez une URL</label>
+                            <input type="text" id="brand-logo-url" name="logo_url" 
+                                   value="${brand ? escapeHtml(brand.logo_url) : ''}" 
+                                   placeholder="https://example.com/logo.png ou images/logos/logo.png"
+                                   style="width: 100%; padding: 0.75rem; border: 1px solid var(--gray-300); border-radius: var(--radius-md); font-size: 0.95rem;"
+                                   data-original-required="true">
+                            <small style="display: block; margin-top: 0.5rem; color: var(--text-secondary);">Format accepté: PNG, SVG, JPG, GIF, WebP</small>
+                        </div>
+                    </div>
+                    <div id="brand-logo-upload-status" style="margin-top: 0.75rem; display: none;"></div>
+                </div>
+                <div class="form-group">
+                    <label for="brand-display-order">Ordre d'affichage</label>
+                    <input type="number" id="brand-display-order" name="display_order" 
+                           value="${brand ? brand.display_order : 0}" min="0">
+                    <small>Les marques sont triées par ordre croissant</small>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="brand-is-active" name="is_active" 
+                               ${brand && brand.is_active ? 'checked' : 'checked'}>
+                        Marque active
+                    </label>
+                </div>
+                <div id="brand-logo-preview" class="brand-logo-preview-container" style="display: none; margin-top: 1rem;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">Aperçu du logo:</label>
+                    <div style="display: inline-block; padding: 1rem; background: var(--gray-50); border: 2px solid var(--gray-200); border-radius: var(--radius-md);">
+                        <img id="brand-logo-preview-img" src="" alt="Aperçu du logo" 
+                             style="max-width: 200px; max-height: 100px; width: auto; height: auto; object-fit: contain; display: block;">
+                    </div>
+                </div>
+            </form>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeBrandModal()">Annuler</button>
+                <button type="submit" form="brand-form" class="btn-primary">
+                    ${brand ? 'Modifier' : 'Ajouter'}
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Setup file upload
+    const logoFileInput = document.getElementById('brand-logo-file');
+    const logoUrlInput = document.getElementById('brand-logo-url');
+    const previewContainer = document.getElementById('brand-logo-preview');
+    const previewImg = document.getElementById('brand-logo-preview-img');
+    const uploadStatus = document.getElementById('brand-logo-upload-status');
+    let uploadedLogoUrl = null;
+    
+    // Helper function to get absolute URL
+    function getAbsoluteUrl(relativeUrl) {
+        if (!relativeUrl) return '';
+        if (relativeUrl.startsWith('http://') || relativeUrl.startsWith('https://')) {
+            return relativeUrl;
+        }
+        // Get base URL from current location
+        const baseUrl = window.location.origin;
+        const pathname = window.location.pathname;
+        // Remove filename from path (e.g., admin_dashboard.php)
+        const basePath = pathname.substring(0, pathname.lastIndexOf('/')) || '';
+        
+        // If URL already starts with /, use as is, otherwise add base path
+        if (relativeUrl.startsWith('/')) {
+            return baseUrl + relativeUrl;
+        } else {
+            return baseUrl + basePath + '/' + relativeUrl;
+        }
+    }
+    
+    // Handle file selection - show preview first, then upload
+    if (logoFileInput) {
+        logoFileInput.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+            if (!allowedTypes.includes(file.type)) {
+                uploadStatus.innerHTML = '<span style="color: var(--danger);"><i class="fas fa-exclamation-circle"></i> Type de fichier non autorisé. Utilisez PNG, SVG, JPG, GIF ou WebP.</span>';
+                uploadStatus.style.display = 'block';
+                return;
+            }
+            
+            // Validate file size (5MB max)
+            if (file.size > 5 * 1024 * 1024) {
+                uploadStatus.innerHTML = '<span style="color: var(--danger);"><i class="fas fa-exclamation-circle"></i> Fichier trop volumineux. Taille maximale: 5MB.</span>';
+                uploadStatus.style.display = 'block';
+                return;
+            }
+            
+            // Show preview immediately using FileReader (before upload)
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                previewContainer.style.display = 'block';
+                previewImg.onerror = null; // Reset error handler
+            };
+            reader.readAsDataURL(file);
+            
+            // Show upload status
+            uploadStatus.innerHTML = '<span style="color: var(--info);"><i class="fas fa-spinner fa-spin"></i> Téléchargement en cours...</span>';
+            uploadStatus.style.display = 'block';
+            
+            // Upload file
+            try {
+                const formData = new FormData();
+                formData.append('logo', file);
+                
+                const response = await fetch('upload_brand_logo.php', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    uploadedLogoUrl = result.image_url;
+                    logoUrlInput.value = result.image_url;
+                    // Remove required attribute and clear validation since we have a file uploaded
+                    logoUrlInput.removeAttribute('required');
+                    if (logoUrlInput.setCustomValidity) {
+                        logoUrlInput.setCustomValidity(''); // Clear any validation errors
+                    }
+                    // Remove any error styling
+                    logoUrlInput.style.borderColor = 'var(--gray-300)';
+                    // Update preview with server URL (absolute path)
+                    const absoluteUrl = getAbsoluteUrl(result.image_url);
+                    previewImg.src = absoluteUrl;
+                    previewImg.onerror = function() {
+                        // Fallback to data URL (local preview) if server URL fails
+                        if (reader.result) {
+                            this.src = reader.result;
+                        }
+                    };
+                    previewContainer.style.display = 'block';
+                    uploadStatus.innerHTML = '<span style="color: var(--success);"><i class="fas fa-check-circle"></i> Logo téléchargé avec succès!</span>';
+                    // Clear status after 3 seconds
+                    setTimeout(() => {
+                        uploadStatus.style.display = 'none';
+                    }, 3000);
+                } else {
+                    uploadStatus.innerHTML = `<span style="color: var(--danger);"><i class="fas fa-exclamation-circle"></i> ${result.error || 'Erreur lors du téléchargement'}</span>`;
+                    // Keep preview if it was shown
+                    if (previewImg.src && previewImg.src.startsWith('data:')) {
+                        // Preview stays visible
+                    } else {
+                        previewContainer.style.display = 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                uploadStatus.innerHTML = '<span style="color: var(--danger);"><i class="fas fa-exclamation-circle"></i> Erreur lors du téléchargement du fichier.</span>';
+                // Keep preview if it was shown
+                if (previewImg.src && previewImg.src.startsWith('data:')) {
+                    // Preview stays visible
+                } else {
+                    previewContainer.style.display = 'none';
+                }
+            }
+        });
+    }
+    
+    // Preview logo when URL changes
+    if (logoUrlInput) {
+        logoUrlInput.addEventListener('input', function() {
+            const url = this.value.trim();
+            if (url) {
+                const absoluteUrl = getAbsoluteUrl(url);
+                previewImg.src = absoluteUrl;
+                previewContainer.style.display = 'block';
+                previewImg.onerror = function() {
+                    // Try original URL if absolute doesn't work
+                    if (absoluteUrl !== url) {
+                        this.src = url;
+                        this.onerror = function() {
+                            // Use data URI placeholder instead of external URL
+                            this.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="100"%3E%3Crect fill="%23f3f4f6" width="200" height="100"/%3E%3Ctext fill="%239ca3af" font-family="Arial" font-size="12" x="50%" y="50%" text-anchor="middle" dy=".3em"%3ELogo introuvable%3C/text%3E%3C/svg%3E';
+                        };
+                    } else {
+                        // Use data URI placeholder instead of external URL
+                        this.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="100"%3E%3Crect fill="%23f3f4f6" width="200" height="100"/%3E%3Ctext fill="%239ca3af" font-family="Arial" font-size="12" x="50%" y="50%" text-anchor="middle" dy=".3em"%3ELogo introuvable%3C/text%3E%3C/svg%3E';
+                    }
+                };
+                // If URL is provided, mark as valid and remove required from file input
+                if (url && (url.startsWith('http') || url.startsWith('/'))) {
+                    if (logoFileInput) {
+                        logoFileInput.removeAttribute('required');
+                    }
+                }
+            } else if (!uploadedLogoUrl) {
+                previewContainer.style.display = 'none';
+                // Restore required if no file uploaded
+                if (!uploadedLogoUrl) {
+                    const originalRequired = logoUrlInput.getAttribute('data-original-required');
+                    if (originalRequired === 'true') {
+                        logoUrlInput.setAttribute('required', 'required');
+                    }
+                }
+            }
+        });
+        
+        // Validate that either file or URL is provided before form submission
+        logoUrlInput.addEventListener('blur', function() {
+            const url = this.value.trim();
+            if (!url && !uploadedLogoUrl) {
+                this.setAttribute('required', 'required');
+                if (this.setCustomValidity) {
+                    this.setCustomValidity('Veuillez télécharger un logo ou entrer une URL');
+                }
+                this.style.borderColor = 'var(--danger)';
+            } else if (url || uploadedLogoUrl) {
+                this.removeAttribute('required');
+                if (this.setCustomValidity) {
+                    this.setCustomValidity(''); // Clear validation error
+                }
+                this.style.borderColor = 'var(--gray-300)';
+            }
+        });
+        
+        // Also validate on input to clear errors immediately
+        logoUrlInput.addEventListener('input', function() {
+            const url = this.value.trim();
+            if (url || uploadedLogoUrl) {
+                if (this.setCustomValidity) {
+                    this.setCustomValidity(''); // Clear validation error
+                }
+                this.style.borderColor = 'var(--gray-300)';
+            }
+        });
+    }
+    
+    // Trigger preview if editing
+    if (brand && brand.logo_url) {
+        const absoluteUrl = getAbsoluteUrl(brand.logo_url);
+        previewImg.src = absoluteUrl;
+                previewImg.onerror = function() {
+                    // Try original URL if absolute doesn't work
+                    if (absoluteUrl !== brand.logo_url) {
+                        this.src = brand.logo_url;
+                        this.onerror = function() {
+                            // Use data URI placeholder instead of external URL
+                            this.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="100"%3E%3Crect fill="%23f3f4f6" width="200" height="100"/%3E%3Ctext fill="%239ca3af" font-family="Arial" font-size="12" x="50%" y="50%" text-anchor="middle" dy=".3em"%3ELogo introuvable%3C/text%3E%3C/svg%3E';
+                        };
+                    } else {
+                        // Use data URI placeholder instead of external URL
+                        this.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="100"%3E%3Crect fill="%23f3f4f6" width="200" height="100"/%3E%3Ctext fill="%239ca3af" font-family="Arial" font-size="12" x="50%" y="50%" text-anchor="middle" dy=".3em"%3ELogo introuvable%3C/text%3E%3C/svg%3E';
+                    }
+                };
+        previewContainer.style.display = 'block';
+        logoUrlInput.value = brand.logo_url;
+    }
+    
+    // Handle form submission
+    document.getElementById('brand-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await handleBrandSubmit(brand ? brand.id : null);
+    });
+}
+
+async function handleBrandSubmit(brandId) {
+    const form = document.getElementById('brand-form');
+    const formData = new FormData(form);
+    const isActiveCheckbox = document.getElementById('brand-is-active');
+    const logoUrlInput = document.getElementById('brand-logo-url');
+    
+    // Get logo URL - use uploaded file URL if available, otherwise use URL input
+    let logoUrl = logoUrlInput ? logoUrlInput.value.trim() : '';
+    
+    // Validate that either file or URL is provided
+    if (!logoUrl) {
+        showToast('Veuillez télécharger un logo ou entrer une URL', 'error');
+        return;
+    }
+    
+    const data = {
+        name: formData.get('name'),
+        logo_url: logoUrl,
+        display_order: parseInt(formData.get('display_order')) || 0,
+        is_active: isActiveCheckbox && isActiveCheckbox.checked ? 1 : 0
+    };
+    
+    // Validate required fields
+    if (!data.name || !data.logo_url) {
+        showToast('Veuillez remplir tous les champs obligatoires', 'error');
+        return;
+    }
+    
+    try {
+        const url = brandId 
+            ? `backend.php?action=car_brands/${brandId}`
+            : 'backend.php?action=car_brands';
+        
+        const response = await fetch(url, {
+            method: brandId ? 'PUT' : 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(brandId ? 'Marque modifiée avec succès' : 'Marque ajoutée avec succès', 'success');
+            closeBrandModal();
+            loadBrands();
+        } else {
+            showToast(result.error || 'Erreur lors de l\'opération', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving brand:', error);
+        showToast('Erreur lors de l\'opération', 'error');
+    }
+}
+
+function closeBrandModal() {
+    const modal = document.getElementById('brand-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function deleteBrand(id) {
+    const brand = brands.find(b => b.id == id);
+    if (!brand) {
+        showToast('Marque non trouvée', 'error');
+        return;
+    }
+    
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer la marque "${brand.name}" ? Cette action est irréversible.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`backend.php?action=car_brands/${id}`, {
+            method: 'DELETE',
+            credentials: 'same-origin'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('Marque supprimée avec succès', 'success');
+            loadBrands();
+        } else {
+            showToast(result.error || 'Erreur lors de la suppression', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting brand:', error);
+        showToast('Erreur lors de la suppression', 'error');
+    }
+}
+
 // Make functions globally available
 window.showAddAdminModal = showAddAdminModal;
 window.closeAdminModal = closeAdminModal;
 window.editAdmin = editAdmin;
 window.toggleAdminStatus = toggleAdminStatus;
 window.deleteAdmin = deleteAdmin;
+window.addBrand = addBrand;
+window.editBrand = editBrand;
+window.deleteBrand = deleteBrand;
+window.closeBrandModal = closeBrandModal;
+window.addImageFromURL = addImageFromURL;
+window.removeImageFromGallery = removeImageFromGallery;
 

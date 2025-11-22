@@ -46,11 +46,31 @@ function displayVehicleDetails(vehicle) {
   // Set page title
   document.title = `${vehicle.name} - Rentcars`;
 
+  // Images array - use vehicle.images if available, otherwise fallback to image_url
+  const images = vehicle.images && Array.isArray(vehicle.images) && vehicle.images.length > 0 
+    ? vehicle.images 
+    : (vehicle.image_url ? [vehicle.image_url] : ['data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjUwMCIgdmlld0JveD0iMCAwIDEyMDAgNTAwIj48cmVjdCB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNmM2Y0ZjYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjI0IiBmaWxsPSIjOWNhM2FmIj5JbWFnZSBub24gZGlzcG9uaWJsZTwvdGV4dD48L3N2Zz4=']);
+  
+  // Store images globally for navigation
+  window.currentVehicleImages = images;
+  window.currentImageIndex = 0;
+  
   // Main image
   const mainImage = document.getElementById('vehicle-main-image');
-  mainImage.src = vehicle.image_url || 'https://via.placeholder.com/1200x500?text=No+Image';
+  mainImage.src = images[0];
   mainImage.alt = vehicle.name;
   document.getElementById('modal-image').src = mainImage.src;
+  
+  // Display image gallery if multiple images
+  if (images.length > 1) {
+    displayImageGallery(images, vehicle.name);
+  } else {
+    // Hide gallery navigation if only one image
+    const galleryNav = document.getElementById('image-gallery-nav');
+    if (galleryNav) galleryNav.style.display = 'none';
+    const thumbnails = document.getElementById('vehicle-images-thumbnails');
+    if (thumbnails) thumbnails.style.display = 'none';
+  }
 
   // Vehicle name
   document.getElementById('vehicle-name').textContent = vehicle.name;
@@ -209,14 +229,15 @@ function displaySimilarVehicles(vehicles) {
   }
 
   grid.innerHTML = vehicles.map(vehicle => {
-    const imageUrl = vehicle.image_url || 'https://via.placeholder.com/400x200?text=No+Image';
+    const placeholderVehicleSVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgNDAwIDIwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmM2Y0ZjYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjOWNhM2FmIj5JbWFnZSBub24gZGlzcG9uaWJsZTwvdGV4dD48L3N2Zz4=';
+    const imageUrl = vehicle.image_url || placeholderVehicleSVG;
     const rating = parseFloat(vehicle.rating || 4.5).toFixed(1);
     const price = parseFloat(vehicle.price_per_day || 0).toFixed(2);
     
     return `
       <article class="vehicle-card">
         <a href="vehicle-details.html?id=${vehicle.id}">
-          <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(vehicle.name)}" onerror="this.src='https://via.placeholder.com/400x200?text=Image+Error'">
+          <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(vehicle.name)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgNDAwIDIwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmM2Y0ZjYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjOWNhM2FmIj5FcnJldXIgY2hhcmdlbWVudDwvdGV4dD48L3N2Zz4=';">
         </a>
         <div class="vehicle-card__body">
           <div class="vehicle-card__header">
@@ -325,6 +346,139 @@ function calculateBookingTotal() {
   }
 }
 
+// Display image gallery
+function displayImageGallery(images, vehicleName) {
+  const galleryNav = document.getElementById('image-gallery-nav');
+  const thumbnailsContainer = document.getElementById('vehicle-images-thumbnails');
+  const imageContainer = document.querySelector('.vehicle-image-container');
+  
+  if (galleryNav) {
+    galleryNav.style.display = 'flex';
+    document.getElementById('current-image-num').textContent = '1';
+    document.getElementById('total-images-num').textContent = images.length;
+  }
+  
+  if (thumbnailsContainer && images.length > 1) {
+    thumbnailsContainer.style.display = 'flex';
+    thumbnailsContainer.innerHTML = images.map((imageUrl, index) => `
+      <div class="image-thumbnail ${index === 0 ? 'active' : ''}" onclick="selectImage(${index})" role="button" tabindex="0" aria-label="Voir l'image ${index + 1}">
+        <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(vehicleName)} - Image ${index + 1}" loading="lazy">
+      </div>
+    `).join('');
+    
+    // Scroll active thumbnail into view
+    setTimeout(() => {
+      const activeThumb = thumbnailsContainer.querySelector('.image-thumbnail.active');
+      if (activeThumb) {
+        activeThumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }, 100);
+  }
+
+  // Add swipe gesture support for mobile
+  if (imageContainer && images.length > 1) {
+    setupSwipeGestures(imageContainer);
+  }
+}
+
+// Setup swipe gestures for mobile
+function setupSwipeGestures(container) {
+  let touchStartX = 0;
+  let touchEndX = 0;
+  let touchStartY = 0;
+  let touchEndY = 0;
+  const minSwipeDistance = 50;
+
+  container.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+  }, { passive: true });
+
+  container.addEventListener('touchend', (e) => {
+    touchEndX = e.changedTouches[0].screenX;
+    touchEndY = e.changedTouches[0].screenY;
+    handleSwipe();
+  }, { passive: true });
+
+  function handleSwipe() {
+    const deltaX = touchEndX - touchStartX;
+    const deltaY = touchEndY - touchStartY;
+    const absDeltaX = Math.abs(deltaX);
+    const absDeltaY = Math.abs(deltaY);
+
+    // Only trigger swipe if horizontal movement is greater than vertical (to avoid conflicts with scrolling)
+    if (absDeltaX > absDeltaY && absDeltaX > minSwipeDistance) {
+      if (deltaX > 0) {
+        // Swipe right - previous image
+        changeImage(-1);
+      } else {
+        // Swipe left - next image
+        changeImage(1);
+      }
+    }
+  }
+}
+
+// Change image
+function changeImage(direction) {
+  if (!window.currentVehicleImages || window.currentVehicleImages.length <= 1) return;
+  
+  window.currentImageIndex += direction;
+  
+  // Wrap around
+  if (window.currentImageIndex < 0) {
+    window.currentImageIndex = window.currentVehicleImages.length - 1;
+  } else if (window.currentImageIndex >= window.currentVehicleImages.length) {
+    window.currentImageIndex = 0;
+  }
+  
+  const mainImage = document.getElementById('vehicle-main-image');
+  const modalImage = document.getElementById('modal-image');
+  
+  // Add fade effect
+  mainImage.classList.add('fade-in');
+  mainImage.style.opacity = '0.7';
+  
+  setTimeout(() => {
+    mainImage.src = window.currentVehicleImages[window.currentImageIndex];
+    if (modalImage) modalImage.src = window.currentVehicleImages[window.currentImageIndex];
+    mainImage.style.opacity = '1';
+    setTimeout(() => {
+      mainImage.classList.remove('fade-in');
+    }, 300);
+  }, 150);
+  
+  // Update indicator
+  document.getElementById('current-image-num').textContent = window.currentImageIndex + 1;
+  
+  // Update thumbnails
+  const thumbnails = document.querySelectorAll('.image-thumbnail');
+  const thumbnailsContainer = document.getElementById('vehicle-images-thumbnails');
+  thumbnails.forEach((thumb, index) => {
+    thumb.classList.toggle('active', index === window.currentImageIndex);
+  });
+  
+  // Scroll active thumbnail into view on mobile
+  if (thumbnailsContainer && window.innerWidth <= 768) {
+    const activeThumb = thumbnailsContainer.querySelector('.image-thumbnail.active');
+    if (activeThumb) {
+      activeThumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }
+}
+
+// Select image from thumbnail
+function selectImage(index) {
+  window.currentImageIndex = index;
+  changeImage(0);
+}
+
+// Make functions globally available
+window.changeImage = changeImage;
+window.selectImage = selectImage;
+window.openImageFullscreen = openImageFullscreen;
+window.closeImageFullscreen = closeImageFullscreen;
+
 // Image fullscreen
 function openImageFullscreen() {
   const modal = document.getElementById('image-modal');
@@ -376,10 +530,22 @@ document.addEventListener('DOMContentLoaded', () => {
   loadVehicleDetails();
   setupBookingForm();
   
-  // Close modal on ESC key
+  // Keyboard navigation for image gallery
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       closeImageFullscreen();
+    }
+    
+    // Arrow keys for image navigation (only when gallery is visible)
+    const galleryNav = document.getElementById('image-gallery-nav');
+    if (galleryNav && galleryNav.style.display !== 'none' && window.currentVehicleImages && window.currentVehicleImages.length > 1) {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        changeImage(-1);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        changeImage(1);
+      }
     }
   });
 });

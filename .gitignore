@@ -28,6 +28,20 @@ backend/uploads/*
 backend/archives/*
 !backend/archives/.gitkeep
 
+# Image uploads (keep structure)
+images/logos/*
+!images/logos/.gitkeep
+images/vehicles/*
+!images/vehicles/.gitkeep
+
+# Keep sample images and logos structure
+!images/logos/brand_*.webp
+!images/logos/brand_*.png
+!images/logos/brand_*.jpg
+!images/vehicles/vehicle_*.png
+!images/vehicles/vehicle_*.jpg
+!images/vehicles/vehicle_*.webp
+
 # Temporary files
 *.tmp
 *.temp
