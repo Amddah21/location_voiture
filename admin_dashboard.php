@@ -102,11 +102,17 @@ $stats = $auth->getStats();
         </div>
     </aside>
 
+    <!-- Sidebar Overlay for Mobile -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
     <!-- Main Content -->
     <main class="main-content">
         <!-- Top Bar -->
         <header class="top-bar">
             <div class="top-bar-left">
+                <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <h1 class="page-title">Tableau de bord</h1>
                 <p class="page-subtitle">Bienvenue, <?php echo htmlspecialchars($admin['name']); ?>!</p>
             </div>
