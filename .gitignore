@@ -1,0 +1,96 @@
+# PHP Configuration
+*.log
+*.cache
+.htaccess.local
+php.ini
+
+# Database
+*.sql
+*.db
+*.sqlite
+*.sqlite3
+database.sql
+CREER_DATABASE_XAMPP.sql
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+config.local.php
+
+# XAMPP specific
+xampp/
+htdocs/.htaccess
+
+# Uploaded files (keep structure, ignore content)
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/archives/*
+!backend/archives/.gitkeep
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+
+# Node modules (if any)
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Build files
+dist/
+build/
+*.min.js
+*.min.css
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# Backup files
+*.bak
+*.backup
+*_backup.*
+*.old
+
+# Session files
+sessions/
+tmp/
+
+# Error logs
+error_log
+php_errors.log
+
+# Composer (if used)
+vendor/
+composer.lock
+
+# Sensitive data
+admin_auth.php.local
+backend.php.local
+*_local.php
+*_secret.php
+*_private.php
+

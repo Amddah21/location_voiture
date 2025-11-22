@@ -104,8 +104,10 @@ function displayVehicleDetails(vehicle) {
   document.getElementById('spec-ac').textContent = vehicle.air_conditioning ? 'Oui' : 'Non';
   document.getElementById('spec-doors').textContent = vehicle.doors || 4;
 
-  // Description
-  const description = generateDescription(vehicle);
+  // Description - Use database description if available, otherwise generate one
+  const description = vehicle.description && vehicle.description.trim() 
+    ? vehicle.description 
+    : generateDescription(vehicle);
   document.getElementById('vehicle-description').textContent = description;
 
   // Features

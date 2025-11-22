@@ -19,9 +19,9 @@ const CURRENCIES = {
     }
 };
 
-// Get currency from localStorage or default to MAD (Moroccan Dirham)
+// Get currency from localStorage or default to EUR
 function getCurrency() {
-    return localStorage.getItem('currency') || 'MAD';
+    return localStorage.getItem('currency') || 'EUR';
 }
 
 // Set currency preference

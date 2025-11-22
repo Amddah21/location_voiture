@@ -93,7 +93,7 @@ $currentYear = date('Y');
           </div>
           <div class="hero__visual">
             <div class="hero__glow"></div>
-            <img src="images/carhero.png" alt="Blue sports car">
+            <img src="images/carhero.png" alt="Blue sports car" loading="eager" decoding="async">
             <div class="hero__card">
               <p>Offre week-end luxe</p>
               <h3>Audi R8 2024</h3>
@@ -239,7 +239,7 @@ $currentYear = date('Y');
               <div class="testimonial-card__rating">★★★★★</div>
               <p>"Réserver avec Rentcars est sans effort. La voiture est arrivée impeccable et à l'heure."</p>
               <div class="testimonial-card__author">
-                <img src="https://images.unsplash.com/photo-1502685104226-ee32379fefbe?auto=format&fit=crop&w=200&q=80" alt="Portrait client">
+                <img src="https://images.unsplash.com/photo-1502685104226-ee32379fefbe?auto=format&fit=crop&w=200&q=80" alt="Portrait client" loading="lazy" decoding="async">
                 <div>
                   <strong>Charlie Johnson</strong>
                   <span>New York, USA</span>
@@ -250,7 +250,7 @@ $currentYear = date('Y');
               <div class="testimonial-card__rating">★★★★★</div>
               <p>"Je me suis senti très en sécurité avec Rentcars. Le support était rapide et le chauffeur professionnel."</p>
               <div class="testimonial-card__author">
-                <img src="https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=200&q=80" alt="Portrait client">
+                <img src="https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=200&q=80" alt="Portrait client" loading="lazy" decoding="async">
                 <div>
                   <strong>Sarah Wilson</strong>
                   <span>Toronto, Canada</span>
@@ -261,7 +261,7 @@ $currentYear = date('Y');
               <div class="testimonial-card__rating">★★★★☆</div>
               <p>"Excellent choix de véhicules et l'application rend la gestion des réservations très simple."</p>
               <div class="testimonial-card__author">
-                <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=200&q=80" alt="Portrait client">
+                <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=200&q=80" alt="Portrait client" loading="lazy" decoding="async">
                 <div>
                   <strong>Emma Reed</strong>
                   <span>Londres, UK</span>
@@ -278,7 +278,7 @@ $currentYear = date('Y');
       <div class="container footer__grid">
         <div>
           <a class="brand brand--footer" href="#top">
-            <img src="images/logo.png" alt="Rentcars logo">
+            <img src="logo/logo1.png" alt="Rentcars logo">
             <span>Rentcars</span>
           </a>
           <p>Locations premium avec service conciergerie, disponibles dans plus de 120 villes dans le monde.</p>
@@ -368,9 +368,9 @@ $currentYear = date('Y');
       </div>
     </div>
 
-    <script src="script/currency.js"></script>
-    <script src="script/load-components.js"></script>
-    <script src="script/script.js"></script>
+    <script src="script/currency.js" defer></script>
+    <script src="script/load-components.js" defer></script>
+    <script src="script/script.js" defer></script>
   </body>
 </html>
 

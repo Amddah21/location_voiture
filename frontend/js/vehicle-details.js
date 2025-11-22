@@ -3,8 +3,8 @@
  * Loads and displays vehicle details dynamically
  */
 
-// API Configuration - Updated path for new structure
-const API_BASE = '../backend/backend.php';
+// API Configuration
+const API_BASE = typeof window.API_BASE !== 'undefined' ? window.API_BASE : 'backend.php';
 
 // Get vehicle ID from URL
 function getVehicleIdFromURL() {
@@ -78,8 +78,12 @@ function displayVehicleDetails(vehicle) {
 
   // Price
   const price = parseFloat(vehicle.price_per_day || 0);
-  document.getElementById('price-amount').textContent = formatPrice(price);
-  document.getElementById('summary-price-day').textContent = formatPrice(price) + ' €';
+  const priceFormatted = formatPrice(price);
+  document.getElementById('price-amount').textContent = priceFormatted;
+  const summaryPriceDay = document.getElementById('summary-price-day');
+  if (summaryPriceDay) {
+    summaryPriceDay.textContent = priceFormatted;
+  }
 
   // Availability
   const availabilityBadge = document.getElementById('availability-badge');
@@ -100,8 +104,10 @@ function displayVehicleDetails(vehicle) {
   document.getElementById('spec-ac').textContent = vehicle.air_conditioning ? 'Oui' : 'Non';
   document.getElementById('spec-doors').textContent = vehicle.doors || 4;
 
-  // Description
-  const description = generateDescription(vehicle);
+  // Description - Use database description if available, otherwise generate one
+  const description = vehicle.description && vehicle.description.trim() 
+    ? vehicle.description 
+    : generateDescription(vehicle);
   document.getElementById('vehicle-description').textContent = description;
 
   // Features
@@ -224,7 +230,7 @@ function displaySimilarVehicles(vehicles) {
             <li>🚪 ${vehicle.doors || 4} port${vehicle.doors !== 1 ? 'es' : 'e'}</li>
           </ul>
           <div class="vehicle-card__footer">
-            <span class="vehicle-card__price">${formatPrice(price)} €<span>/jour</span></span>
+            <span class="vehicle-card__price">${formatPrice(price)}<span>/jour</span></span>
             <a href="vehicle-details.html?id=${vehicle.id}" class="btn btn-outline">Voir détails</a>
           </div>
         </div>
@@ -241,10 +247,14 @@ function showError() {
 
 // Format price
 function formatPrice(price) {
+  if (typeof window.formatPriceWithCurrency === 'function') {
+    return window.formatPriceWithCurrency(price);
+  }
+  // Fallback if currency.js not loaded
   return new Intl.NumberFormat('fr-FR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(price);
+  }).format(price) + ' €';
 }
 
 // Format number
@@ -276,9 +286,15 @@ function escapeHtml(text) {
 function calculateBookingTotal() {
   const pickupInput = document.getElementById('pickup-date');
   const returnInput = document.getElementById('return-date');
-  const priceDay = parseFloat(document.getElementById('summary-price-day').textContent.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+  const priceDayElement = document.getElementById('summary-price-day');
   
-  if (pickupInput.value && returnInput.value) {
+  if (!pickupInput || !returnInput || !priceDayElement) return;
+  
+  // Get price from element - handle French format (1 200,00 €) or (1200.00 €)
+  const priceText = priceDayElement.textContent.trim();
+  const priceDay = parseFloat(priceText.replace(/[^\d,.]/g, '').replace(/\s/g, '').replace(',', '.')) || 0;
+  
+  if (pickupInput.value && returnInput.value && priceDay > 0) {
     const pickup = new Date(pickupInput.value);
     const returnDate = new Date(returnInput.value);
     
@@ -286,12 +302,26 @@ function calculateBookingTotal() {
       const days = Math.ceil((returnDate - pickup) / (1000 * 60 * 60 * 24));
       const total = priceDay * days;
       
-      document.getElementById('summary-days').textContent = `${days} jour${days !== 1 ? 's' : ''}`;
-      document.getElementById('summary-total').textContent = formatPrice(total) + ' €';
+      const daysElement = document.getElementById('summary-days');
+      const totalElement = document.getElementById('summary-total');
+      
+      if (daysElement) {
+        daysElement.textContent = `${days} jour${days !== 1 ? 's' : ''}`;
+      }
+      if (totalElement) {
+        totalElement.textContent = formatPrice(total);
+      }
     } else {
-      document.getElementById('summary-days').textContent = '-';
-      document.getElementById('summary-total').textContent = '-';
+      const daysElement = document.getElementById('summary-days');
+      const totalElement = document.getElementById('summary-total');
+      if (daysElement) daysElement.textContent = '-';
+      if (totalElement) totalElement.textContent = '-';
     }
+  } else {
+    const daysElement = document.getElementById('summary-days');
+    const totalElement = document.getElementById('summary-total');
+    if (daysElement) daysElement.textContent = '-';
+    if (totalElement) totalElement.textContent = '-';
   }
 }
 
@@ -330,12 +360,13 @@ function setupBookingForm() {
       return;
     }
     
-    // Open booking modal or redirect
+    // Check if booking modal exists (from index.php)
     if (typeof openBookingModal === 'function') {
+      // Open booking modal with pre-filled data
       openBookingModal(vehicleId, pickupLocation, pickupDate.split('T')[0], returnDate.split('T')[0]);
     } else {
-      // Fallback: redirect to index with booking params
-      window.location.href = `index.html?book=${vehicleId}&location=${encodeURIComponent(pickupLocation)}&pickup=${pickupDate}&return=${returnDate}`;
+      // Redirect to index.php with booking parameters to use the booking modal there
+      window.location.href = `index.php?book=${vehicleId}&location=${encodeURIComponent(pickupLocation)}&pickup=${pickupDate.split('T')[0]}&return=${returnDate.split('T')[0]}`;
     }
   });
 }

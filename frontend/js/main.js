@@ -1,12 +1,20 @@
+/**
+ * Main Application JavaScript
+ * Consolidated from script.js and related files
+ * Updated for new frontend/backend structure
+ */
+
+// API Configuration - updated path
+const API_BASE = '/rental_car/backend/controllers/backend.php';
+
+// Menu toggle functionality (if needed for legacy navbar)
 const menuToggle = document.querySelector(".menu-toggle");
 const navLinks = document.querySelector(".nav-links");
-const currentYearEl = document.querySelector("#current-year");
 
 if (menuToggle && navLinks) {
   menuToggle.addEventListener("click", () => {
     const isOpen = navLinks.classList.toggle("is-open");
     menuToggle.setAttribute("aria-expanded", String(isOpen));
-
     menuToggle.classList.toggle("is-active", isOpen);
 
     const spans = menuToggle.querySelectorAll("span");
@@ -32,12 +40,13 @@ if (menuToggle && navLinks) {
   });
 }
 
-// L'année est maintenant gérée par PHP dans index.php
-// Cette ligne est conservée pour compatibilité si l'élément existe toujours
+// Current year element
+const currentYearEl = document.querySelector("#current-year");
 if (currentYearEl) {
   currentYearEl.textContent = new Date().getFullYear();
 }
 
+// Navbar scroll effect
 const navbar = document.querySelector(".navbar");
 if (navbar) {
   const handleScroll = () => {
@@ -51,9 +60,6 @@ if (navbar) {
   window.addEventListener("scroll", handleScroll);
 }
 
-// API Configuration
-const API_BASE = 'backend.php';
-
 // Load vehicles on page load
 document.addEventListener('DOMContentLoaded', () => {
   loadVehicles();
@@ -61,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupBookingModal();
 });
 
-// Load vehicles from API - Dynamic loading from database
+// Load vehicles from API
 async function loadVehicles() {
   const grid = document.getElementById('vehicles-grid');
   if (grid) {
@@ -69,44 +75,22 @@ async function loadVehicles() {
   }
   
   try {
-    // Try to get available vehicles first, if none found, get all vehicles
-    let response = await fetch(`${API_BASE}?action=vehicles&available=true`);
+    const response = await fetch(`${API_BASE}?action=vehicles&available=true`);
+    const result = await response.json();
     
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    let result = await response.json();
-    console.log('Vehicles API response:', result); // Debug log
-    
-    if (result.success && result.data && Array.isArray(result.data)) {
-      // Filter available vehicles
-      let availableVehicles = result.data.filter(v => v.available === true || v.available === 1 || v.available === '1');
-      
-      // If no available vehicles, try to get all vehicles
-      if (availableVehicles.length === 0) {
-        console.log('No available vehicles found, fetching all vehicles...');
-        response = await fetch(`${API_BASE}?action=vehicles`);
-        result = await response.json();
-        if (result.success && result.data && Array.isArray(result.data)) {
-          availableVehicles = result.data;
-        }
-      }
-      
-      console.log('Vehicles to display:', availableVehicles); // Debug log
-      
+    if (result.success && result.data) {
+      const availableVehicles = result.data.filter(v => v.available === true || v.available === 1);
       if (availableVehicles.length > 0) {
-        displayVehicles(availableVehicles.slice(0, 8)); // Show first 8 vehicles
+        displayVehicles(availableVehicles.slice(0, 8));
       } else {
-        showLoadingError('Aucun véhicule trouvé. Veuillez ajouter des véhicules dans le panneau d\'administration et les marquer comme disponibles.');
+        showLoadingError('Aucun véhicule disponible pour le moment.');
       }
     } else {
-      console.error('API response error:', result);
-      showLoadingError(result.error || 'Erreur lors du chargement des véhicules.');
+      showLoadingError('Erreur lors du chargement des véhicules.');
     }
   } catch (error) {
     console.error('Error loading vehicles:', error);
-    showLoadingError('Erreur de connexion: ' + error.message + '. Veuillez rafraîchir la page.');
+    showLoadingError('Erreur de connexion. Veuillez rafraîchir la page.');
   }
 }
 
@@ -128,7 +112,6 @@ function displayVehicles(vehicles) {
   }
 
   grid.innerHTML = vehicles.map(vehicle => {
-    // Escape HTML to prevent XSS and handle missing data
     const name = escapeHtml(vehicle.name || 'Véhicule');
     const imageUrl = vehicle.image_url || 'https://via.placeholder.com/400x200?text=No+Image';
     const rating = parseFloat(vehicle.rating || 4.5).toFixed(1);
@@ -171,17 +154,15 @@ function escapeHtml(text) {
 }
 
 // Use global formatPriceWithCurrency from currency.js
-// If not available, provide a fallback
 function formatPriceForDisplay(price) {
   if (typeof window.formatPriceWithCurrency === 'function') {
     return window.formatPriceWithCurrency(price);
   }
-  // Fallback if currency.js not loaded - default to MAD
   const numPrice = parseFloat(price) || 0;
   return new Intl.NumberFormat('fr-FR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(numPrice) + ' DH';
+  }).format(numPrice) + ' €';
 }
 
 function formatReviewCount(count) {
@@ -320,7 +301,6 @@ function setupBookingModal() {
     });
   }
 
-  // Recalculate total when dates change
   const pickupInput = document.getElementById('booking-pickup');
   const returnInput = document.getElementById('booking-return');
   if (pickupInput) pickupInput.addEventListener('change', calculateBookingTotal);
@@ -388,7 +368,6 @@ async function submitBooking() {
     const result = await response.json();
 
     if (result.success) {
-      // Redirect to confirmation page
       window.location.href = `booking-confirmation.html?id=${result.booking_id}`;
     } else {
       alert('Échec de la réservation : ' + (result.error || 'Erreur inconnue'));

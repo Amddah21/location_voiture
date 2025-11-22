@@ -1,37 +1,66 @@
 /**
  * Component Loader
  * Loads header and footer components into pages
+ * Updated for new frontend/backend structure
  */
 
-// Get base path for components (works with XAMPP)
+// Get base path for components
 function getBasePath() {
   const path = window.location.pathname;
-  const pathParts = path.split('/');
-  // Remove filename and get directory
-  pathParts.pop();
-  return pathParts.join('/') || '';
+  // Extract project root (rental_car)
+  if (path.includes('/rental_car/')) {
+    return '/rental_car/frontend';
+  }
+  return 'frontend';
+}
+
+// Fix image paths in loaded HTML
+function fixImagePaths(html) {
+  // Logo path - use absolute path from project root
+  const logoPath = '/rental_car/logo/logo1.png';
+  
+  // Replace all logo path variations
+  const patterns = [
+    /src=["']logo\/logo1\.png["']/gi,
+    /src=["']\.\.\/\.\.\/logo\/logo1\.png["']/gi,
+    /src=["']\.\.\/logo\/logo1\.png["']/gi,
+    /src=["']\/logo\/logo1\.png["']/gi,
+    /src=["']logo\/@logo1\.png["']/gi
+  ];
+  
+  patterns.forEach(pattern => {
+    html = html.replace(pattern, `src="${logoPath}"`);
+  });
+  
+  return html;
 }
 
 // Load header component
 async function loadHeader() {
   try {
     const basePath = getBasePath();
-    const headerPath = basePath ? `${basePath}/components/header.html` : 'components/header.html';
+    const headerPath = `${basePath}/components/header.html`;
     const response = await fetch(headerPath);
     if (!response.ok) throw new Error('Failed to load header');
     
-    const html = await response.text();
+    let html = await response.text();
     const headerPlaceholder = document.getElementById('header-placeholder');
     
     if (headerPlaceholder) {
+      html = fixImagePaths(html);
       headerPlaceholder.innerHTML = html;
       
       // Load header CSS
-      const cssPath = basePath ? `${basePath}/components/header.css` : 'components/header.css';
+      const cssPath = `${basePath}/components/header.css`;
       loadCSS(cssPath);
       
       // Initialize mobile menu
       initMobileMenu();
+      
+      // Initialize currency selector
+      if (typeof initCurrencySelector === 'function') {
+        initCurrencySelector();
+      }
     }
   } catch (error) {
     console.error('Error loading header:', error);
@@ -42,18 +71,19 @@ async function loadHeader() {
 async function loadFooter() {
   try {
     const basePath = getBasePath();
-    const footerPath = basePath ? `${basePath}/components/footer.html` : 'components/footer.html';
+    const footerPath = `${basePath}/components/footer.html`;
     const response = await fetch(footerPath);
     if (!response.ok) throw new Error('Failed to load footer');
     
-    const html = await response.text();
+    let html = await response.text();
     const footerPlaceholder = document.getElementById('footer-placeholder');
     
     if (footerPlaceholder) {
+      html = fixImagePaths(html);
       footerPlaceholder.innerHTML = html;
       
       // Load footer CSS
-      const cssPath = basePath ? `${basePath}/components/footer.css` : 'components/footer.css';
+      const cssPath = `${basePath}/components/footer.css`;
       loadCSS(cssPath);
       
       // Set current year
@@ -108,7 +138,7 @@ function initMobileMenu() {
 // Load contacts from API and populate footer
 async function loadFooterContacts() {
   try {
-    const response = await fetch('../backend/backend.php?action=contacts');
+    const response = await fetch('/rental_car/backend/controllers/backend.php?action=contacts');
     const data = await response.json();
     
     if (data.success && data.data) {
@@ -178,4 +208,3 @@ document.addEventListener('DOMContentLoaded', () => {
   loadHeader();
   loadFooter();
 });
-

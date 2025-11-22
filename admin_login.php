@@ -37,7 +37,7 @@ if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true
         <div class="login-card">
             <div class="login-header">
                 <div class="logo-container">
-                    <img src="images/logo.png" alt="Rentcars Logo" class="logo">
+                    <img src="logo/logo1.png" alt="Rentcars Logo" class="logo">
                     <h1>Rentcars</h1>
                 </div>
                 <h2>Admin Panel</h2>

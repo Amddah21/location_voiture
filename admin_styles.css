@@ -250,10 +250,27 @@ body {
     background: var(--bg-primary);
 }
 
-.form-group input:focus {
+.form-group input:focus,
+.form-group textarea:focus {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 100px;
+    transition: var(--transition-fast);
+}
+
+.form-group textarea::placeholder {
+    color: var(--gray-400);
 }
 
 .form-group.focused input {
@@ -1099,6 +1116,62 @@ body {
 .settings-form input:read-only {
     background: var(--gray-50);
     color: var(--text-secondary);
+}
+
+.settings-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.settings-card-header h3 {
+    margin-bottom: 0;
+}
+
+.admins-table-container {
+    overflow-x: auto;
+    margin-top: 1rem;
+}
+
+.admins-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-primary);
+}
+
+.admins-table thead {
+    background: var(--gray-50);
+}
+
+.admins-table th {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.admins-table td {
+    padding: 1rem;
+    border-top: 1px solid var(--gray-200);
+    font-size: 0.875rem;
+}
+
+.admins-table tbody tr:hover {
+    background: var(--gray-50);
+}
+
+.status-badge.status-active {
+    background: var(--success);
+    color: white;
+}
+
+.status-badge.status-inactive {
+    background: var(--gray-400);
+    color: white;
 }
 
 /* Filter */

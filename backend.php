@@ -9,10 +9,29 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
+// Performance optimizations
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+
+// Cache control for GET requests (5 minutes)
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && !isset($_GET['nocache'])) {
+    header('Cache-Control: public, max-age=300');
+    header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 300) . ' GMT');
+} else {
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+}
+
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
+}
+
+// Start session early for admin authentication
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
 // Database configuration
@@ -84,9 +103,15 @@ class RentcarsAPI {
                     rating DECIMAL(3, 1) DEFAULT 4.5,
                     review_count INT DEFAULT 0,
                     available BOOLEAN DEFAULT TRUE,
+                    available_from DATE NULL COMMENT 'Date de début de disponibilité',
+                    available_to DATE NULL COMMENT 'Date de fin de disponibilité',
+                    description TEXT COMMENT 'Detailed description of the vehicle',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ");
+            
+            // Add new columns if they don't exist (migration)
+            $this->migrateVehiclesTable();
 
             $this->db->exec("
                 CREATE TABLE IF NOT EXISTS bookings (
@@ -142,6 +167,7 @@ class RentcarsAPI {
             ");
 
             // Add new columns if they don't exist (migration)
+            $this->migrateVehiclesTable();
             $this->migrateClientsTable();
 
             $this->db->exec("
@@ -180,6 +206,22 @@ class RentcarsAPI {
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ");
 
+            // Create users table for admin management
+            $this->db->exec("
+                CREATE TABLE IF NOT EXISTS users (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    email VARCHAR(255) NOT NULL UNIQUE,
+                    password_hash VARCHAR(255) NOT NULL,
+                    full_name VARCHAR(255) NOT NULL,
+                    role VARCHAR(50) DEFAULT 'admin',
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_email (email),
+                    INDEX idx_role (role)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+
             // Insert sample vehicles if table is empty
             $stmt = $this->db->query("SELECT COUNT(*) as count FROM vehicles");
             $result = $stmt->fetch();
@@ -188,6 +230,31 @@ class RentcarsAPI {
             }
         } catch (PDOException $e) {
             error_log("Database initialization error: " . $e->getMessage());
+        }
+    }
+
+    private function migrateVehiclesTable() {
+        try {
+            // Check if description column exists
+            $stmt = $this->db->query("SHOW COLUMNS FROM vehicles LIKE 'description'");
+            if ($stmt->rowCount() == 0) {
+                $this->db->exec("ALTER TABLE vehicles ADD COLUMN description TEXT COMMENT 'Detailed description of the vehicle'");
+            }
+            
+            // Check if available_from column exists
+            $stmt = $this->db->query("SHOW COLUMNS FROM vehicles LIKE 'available_from'");
+            if ($stmt->rowCount() == 0) {
+                $this->db->exec("ALTER TABLE vehicles ADD COLUMN available_from DATE NULL COMMENT 'Date de début de disponibilité'");
+            }
+            
+            // Check if available_to column exists
+            $stmt = $this->db->query("SHOW COLUMNS FROM vehicles LIKE 'available_to'");
+            if ($stmt->rowCount() == 0) {
+                $this->db->exec("ALTER TABLE vehicles ADD COLUMN available_to DATE NULL COMMENT 'Date de fin de disponibilité'");
+            }
+        } catch (PDOException $e) {
+            // Table might not exist yet, ignore error
+            error_log("Migration error (may be expected): " . $e->getMessage());
         }
     }
 
@@ -252,7 +319,7 @@ class RentcarsAPI {
             [
                 'name' => 'Jaguar XE L P250',
                 'type' => 'Luxury',
-                'price_per_day' => 1800.00,
+                'price_per_day' => 19440.00, // 1800 EUR * 10.8 = 19440 MAD
                 'image_url' => 'https://images.unsplash.com/photo-1525609004556-c46c7d6cf023?auto=format&fit=crop&w=800&q=80',
                 'passengers' => 4,
                 'transmission' => 'Auto',
@@ -264,7 +331,7 @@ class RentcarsAPI {
             [
                 'name' => 'Audi R8',
                 'type' => 'Luxury',
-                'price_per_day' => 2100.00,
+                'price_per_day' => 22680.00, // 2100 EUR * 10.8 = 22680 MAD
                 'image_url' => 'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=800&q=80',
                 'passengers' => 2,
                 'transmission' => 'Auto',
@@ -276,7 +343,7 @@ class RentcarsAPI {
             [
                 'name' => 'BMW M3 Competition',
                 'type' => 'Luxury',
-                'price_per_day' => 1600.00,
+                'price_per_day' => 17280.00, // 1600 EUR * 10.8 = 17280 MAD
                 'image_url' => 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80',
                 'passengers' => 4,
                 'transmission' => 'Auto',
@@ -288,7 +355,7 @@ class RentcarsAPI {
             [
                 'name' => 'Lamborghini Huracán',
                 'type' => 'Luxury',
-                'price_per_day' => 2300.00,
+                'price_per_day' => 24840.00, // 2300 EUR * 10.8 = 24840 MAD
                 'image_url' => 'https://images.unsplash.com/photo-1590868309235-32f32f5a1ef6?auto=format&fit=crop&w=800&q=80',
                 'passengers' => 2,
                 'transmission' => 'Auto',
@@ -375,6 +442,10 @@ class RentcarsAPI {
             $this->getClients();
         } elseif (preg_match('/^clients\/(\d+)$/', $path, $matches)) {
             $this->getClient($matches[1]);
+        } elseif ($path === 'admins') {
+            $this->getAdmins();
+        } elseif (preg_match('/^admins\/(\d+)$/', $path, $matches)) {
+            $this->getAdmin($matches[1]);
         } else {
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $path]);
@@ -399,6 +470,10 @@ class RentcarsAPI {
                 http_response_code(400);
                 echo json_encode(['error' => 'Failed to create/update client']);
             }
+        } elseif ($path === 'admins/change-password') {
+            $this->changeAdminPassword($data);
+        } elseif ($path === 'admins') {
+            $this->createAdmin($data);
         } else {
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $path]);
@@ -416,6 +491,8 @@ class RentcarsAPI {
             $this->updateContact($matches[1], $data);
         } elseif (preg_match('/^clients\/(\d+)$/', $path, $matches)) {
             $this->updateClient($matches[1], $data);
+        } elseif (preg_match('/^admins\/(\d+)$/', $path, $matches)) {
+            $this->updateAdmin($matches[1], $data);
         } else {
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found']);
@@ -431,6 +508,8 @@ class RentcarsAPI {
             $this->deleteContact($matches[1]);
         } elseif (preg_match('/^clients\/(\d+)$/', $path, $matches)) {
             $this->deleteClient($matches[1]);
+        } elseif (preg_match('/^admins\/(\d+)$/', $path, $matches)) {
+            $this->deleteAdmin($matches[1]);
         } else {
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found']);
@@ -458,15 +537,22 @@ class RentcarsAPI {
                 $params[':type'] = $type;
             }
 
+            // Handle available filter - if 'true' is passed, only show available vehicles
+            // If not specified, show all vehicles
             if ($available !== null && $available !== '') {
-                if ($available === 'true' || $available === true) {
+                if ($available === 'true' || $available === true || $available === '1') {
                     $sql .= " AND available = 1";
-                } else {
+                } elseif ($available === 'false' || $available === false || $available === '0') {
                     $sql .= " AND available = 0";
                 }
             }
 
             $sql .= " ORDER BY created_at DESC";
+            
+            // Add limit for performance (default 50, can be overridden)
+            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
+            $limit = min(max($limit, 1), 100); // Between 1 and 100
+            $sql .= " LIMIT " . (int)$limit;
 
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
@@ -540,6 +626,11 @@ class RentcarsAPI {
             }
 
             $sql .= " ORDER BY v.price_per_day ASC";
+            
+            // Add limit for performance
+            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
+            $limit = min(max($limit, 1), 100);
+            $sql .= " LIMIT " . (int)$limit;
 
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
@@ -580,8 +671,8 @@ class RentcarsAPI {
             }
 
             $stmt = $this->db->prepare("
-                INSERT INTO vehicles (name, type, price_per_day, image_url, passengers, transmission, air_conditioning, doors, rating, review_count, available)
-                VALUES (:name, :type, :price_per_day, :image_url, :passengers, :transmission, :air_conditioning, :doors, :rating, :review_count, :available)
+                INSERT INTO vehicles (name, type, price_per_day, image_url, passengers, transmission, air_conditioning, doors, rating, review_count, available, description, available_from, available_to)
+                VALUES (:name, :type, :price_per_day, :image_url, :passengers, :transmission, :air_conditioning, :doors, :rating, :review_count, :available, :description, :available_from, :available_to)
             ");
 
             $stmt->execute([
@@ -595,7 +686,10 @@ class RentcarsAPI {
                 ':doors' => $data['doors'] ?? 4,
                 ':rating' => $data['rating'] ?? 4.5,
                 ':review_count' => $data['review_count'] ?? 0,
-                ':available' => isset($data['available']) ? (int)$data['available'] : 1
+                ':available' => isset($data['available']) ? (int)$data['available'] : 1,
+                ':description' => $data['description'] ?? null,
+                ':available_from' => !empty($data['available_from']) ? $data['available_from'] : null,
+                ':available_to' => !empty($data['available_to']) ? $data['available_to'] : null
             ]);
 
             $id = $this->db->lastInsertId();
@@ -615,7 +709,7 @@ class RentcarsAPI {
             $fields = [];
             $params = [':id' => $id];
 
-            $allowed = ['name', 'type', 'price_per_day', 'image_url', 'passengers', 'transmission', 'air_conditioning', 'doors', 'rating', 'review_count', 'available'];
+            $allowed = ['name', 'type', 'price_per_day', 'image_url', 'passengers', 'transmission', 'air_conditioning', 'doors', 'rating', 'review_count', 'available', 'description'];
             foreach ($allowed as $field) {
                 if (isset($data[$field])) {
                     $fields[] = "$field = :$field";
@@ -1252,6 +1346,284 @@ class RentcarsAPI {
         }
     }
 
+    // Admin management methods
+    private function getAdmins() {
+        try {
+            $stmt = $this->db->query("SELECT id, email, full_name, role, is_active, created_at FROM users WHERE role = 'admin' ORDER BY created_at DESC");
+            $admins = $stmt->fetchAll();
+            
+            // Remove password hashes from response
+            foreach ($admins as &$admin) {
+                unset($admin['password_hash']);
+                $admin['is_active'] = (bool)$admin['is_active'];
+            }
+            
+            echo json_encode(['success' => true, 'data' => $admins]);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to fetch admins: ' . $e->getMessage()]);
+        }
+    }
+
+    private function getAdmin($id) {
+        try {
+            $stmt = $this->db->prepare("SELECT id, email, full_name, role, is_active, created_at FROM users WHERE id = :id AND role = 'admin'");
+            $stmt->execute([':id' => $id]);
+            $admin = $stmt->fetch();
+
+            if (!$admin) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Admin not found']);
+                return;
+            }
+
+            unset($admin['password_hash']);
+            $admin['is_active'] = (bool)$admin['is_active'];
+            
+            echo json_encode(['success' => true, 'data' => $admin]);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to fetch admin: ' . $e->getMessage()]);
+        }
+    }
+
+    private function createAdmin($data) {
+        try {
+            // Check if session exists and user is admin
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            
+            if (!isset($_SESSION['admin_id'])) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Unauthorized - Please log in again. Session not found.']);
+                return;
+            }
+
+            // Validate required fields
+            $required = ['email', 'password', 'full_name'];
+            foreach ($required as $field) {
+                if (empty($data[$field])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => "Missing required field: $field"]);
+                    return;
+                }
+            }
+
+            // Check if email already exists
+            $stmt = $this->db->prepare("SELECT id FROM users WHERE email = :email");
+            $stmt->execute([':email' => $data['email']]);
+            if ($stmt->fetch()) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Email already exists']);
+                return;
+            }
+
+            // Hash password
+            $password_hash = password_hash($data['password'], PASSWORD_DEFAULT);
+
+            $stmt = $this->db->prepare("
+                INSERT INTO users (email, password_hash, full_name, role, is_active)
+                VALUES (:email, :password_hash, :full_name, 'admin', :is_active)
+            ");
+
+            $stmt->execute([
+                ':email' => $data['email'],
+                ':password_hash' => $password_hash,
+                ':full_name' => $data['full_name'],
+                ':is_active' => isset($data['is_active']) ? (int)$data['is_active'] : 1
+            ]);
+
+            $id = $this->db->lastInsertId();
+            
+            // Log admin action
+            $this->logAdminAction('create', "Admin created: {$data['email']} (ID: {$id})");
+
+            echo json_encode(['success' => true, 'message' => 'Admin created successfully', 'id' => $id]);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to create admin: ' . $e->getMessage()]);
+        }
+    }
+
+    private function updateAdmin($id, $data) {
+        try {
+            // Check if session exists and user is admin
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            
+            if (!isset($_SESSION['admin_id'])) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Unauthorized']);
+                return;
+            }
+
+            $fields = [];
+            $params = [':id' => $id];
+
+            // Allow updating email, full_name, is_active, and password
+            if (isset($data['email'])) {
+                // Check if email is already taken by another admin
+                $stmt = $this->db->prepare("SELECT id FROM users WHERE email = :email AND id != :id");
+                $stmt->execute([':email' => $data['email'], ':id' => $id]);
+                if ($stmt->fetch()) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Email already exists']);
+                    return;
+                }
+                $fields[] = "email = :email";
+                $params[':email'] = $data['email'];
+            }
+
+            if (isset($data['full_name'])) {
+                $fields[] = "full_name = :full_name";
+                $params[':full_name'] = $data['full_name'];
+            }
+
+            if (isset($data['is_active'])) {
+                $fields[] = "is_active = :is_active";
+                $params[':is_active'] = (int)$data['is_active'];
+            }
+
+            if (isset($data['password']) && !empty($data['password'])) {
+                $fields[] = "password_hash = :password_hash";
+                $params[':password_hash'] = password_hash($data['password'], PASSWORD_DEFAULT);
+            }
+
+            if (empty($fields)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'No fields to update']);
+                return;
+            }
+
+            $sql = "UPDATE users SET " . implode(', ', $fields) . " WHERE id = :id AND role = 'admin'";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+
+            if ($stmt->rowCount() === 0) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Admin not found']);
+                return;
+            }
+
+            // Log admin action
+            $this->logAdminAction('update', "Admin #{$id} updated");
+
+            echo json_encode(['success' => true, 'message' => 'Admin updated successfully']);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to update admin: ' . $e->getMessage()]);
+        }
+    }
+
+    private function deleteAdmin($id) {
+        try {
+            // Check if session exists and user is admin
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            
+            if (!isset($_SESSION['admin_id'])) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Unauthorized']);
+                return;
+            }
+
+            // Prevent deleting yourself
+            if ($_SESSION['admin_id'] == $id) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Cannot delete your own account']);
+                return;
+            }
+
+            $stmt = $this->db->prepare("DELETE FROM users WHERE id = :id AND role = 'admin'");
+            $stmt->execute([':id' => $id]);
+
+            if ($stmt->rowCount() === 0) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Admin not found']);
+                return;
+            }
+
+            // Log admin action
+            $this->logAdminAction('delete', "Admin #{$id} deleted");
+
+            echo json_encode(['success' => true, 'message' => 'Admin deleted successfully']);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to delete admin: ' . $e->getMessage()]);
+        }
+    }
+
+    private function changeAdminPassword($data) {
+        try {
+            // Check if session exists
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            
+            if (!isset($_SESSION['admin_id'])) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Unauthorized']);
+                return;
+            }
+
+            $admin_id = $_SESSION['admin_id'];
+            $current_password = $data['current_password'] ?? '';
+            $new_password = $data['new_password'] ?? '';
+            $confirm_password = $data['confirm_password'] ?? '';
+
+            // Validate required fields
+            if (empty($current_password) || empty($new_password) || empty($confirm_password)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'All password fields are required']);
+                return;
+            }
+
+            // Check if new passwords match
+            if ($new_password !== $confirm_password) {
+                http_response_code(400);
+                echo json_encode(['error' => 'New passwords do not match']);
+                return;
+            }
+
+            // Validate password length
+            if (strlen($new_password) < 6) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Password must be at least 6 characters long']);
+                return;
+            }
+
+            // Verify current password
+            $stmt = $this->db->prepare("SELECT password_hash FROM users WHERE id = :id AND role = 'admin'");
+            $stmt->execute([':id' => $admin_id]);
+            $admin = $stmt->fetch();
+
+            if (!$admin || !password_verify($current_password, $admin['password_hash'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Current password is incorrect']);
+                return;
+            }
+
+            // Update password
+            $new_password_hash = password_hash($new_password, PASSWORD_DEFAULT);
+            $stmt = $this->db->prepare("UPDATE users SET password_hash = :password_hash WHERE id = :id");
+            $stmt->execute([
+                ':password_hash' => $new_password_hash,
+                ':id' => $admin_id
+            ]);
+
+            // Log admin action
+            $this->logAdminAction('password_change', 'Password changed successfully');
+
+            echo json_encode(['success' => true, 'message' => 'Password changed successfully']);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to change password: ' . $e->getMessage()]);
+        }
+    }
+
     private function getDefaultIcon($type) {
         $icons = [
             'phone' => 'fas fa-phone',
@@ -1267,11 +1639,6 @@ class RentcarsAPI {
         ];
         return $icons[$type] ?? 'fas fa-link';
     }
-}
-
-// Start session for admin logging
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
 }
 
 // Initialize and handle request

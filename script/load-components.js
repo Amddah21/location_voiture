@@ -55,9 +55,6 @@ function fixImagePaths(html, basePath) {
     html = html.replace(pattern, `src="${logoPath}"`);
   });
   
-  // Debug: log the path being used
-  console.log('Logo path set to:', logoPath, 'for page:', currentPath, 'depth:', depth);
-  
   return html;
 }
 
@@ -69,7 +66,7 @@ async function loadHeader() {
     const response = await fetch(headerPath);
     if (!response.ok) throw new Error('Failed to load header');
     
-    const html = await response.text();
+    let html = await response.text();
     const headerPlaceholder = document.getElementById('header-placeholder');
     
     if (headerPlaceholder) {
@@ -81,8 +78,7 @@ async function loadHeader() {
       const logoImg = headerPlaceholder.querySelector('.header-logo img');
       if (logoImg) {
         logoImg.onerror = function() {
-          console.warn('Logo failed to load, trying alternative paths...');
-          // Try relative path
+          // Try relative path as fallback
           const currentPath = window.location.pathname;
           const pathParts = currentPath.split('/').filter(p => p);
           const depth = pathParts.length > 1 ? pathParts.length - 1 : 0;
@@ -116,7 +112,7 @@ async function loadFooter() {
     const response = await fetch(footerPath);
     if (!response.ok) throw new Error('Failed to load footer');
     
-    const html = await response.text();
+    let html = await response.text();
     const footerPlaceholder = document.getElementById('footer-placeholder');
     
     if (footerPlaceholder) {
@@ -128,8 +124,7 @@ async function loadFooter() {
       const logoImg = footerPlaceholder.querySelector('.footer-logo img');
       if (logoImg) {
         logoImg.onerror = function() {
-          console.warn('Footer logo failed to load, trying alternative paths...');
-          // Try relative path
+          // Try relative path as fallback
           const currentPath = window.location.pathname;
           const pathParts = currentPath.split('/').filter(p => p);
           const depth = pathParts.length > 1 ? pathParts.length - 1 : 0;

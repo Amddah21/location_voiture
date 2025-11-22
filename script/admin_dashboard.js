@@ -10,6 +10,15 @@ let bookings = [];
 let logs = [];
 let clients = [];
 
+// Price formatting function (fallback if currency.js not loaded)
+function formatPriceWithCurrency(price) {
+    const numPrice = parseFloat(price) || 0;
+    return new Intl.NumberFormat('fr-FR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(numPrice) + ' DH';
+}
+
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', () => {
     initializeNavigation();
@@ -72,6 +81,10 @@ function showSection(section) {
             break;
         case 'clients':
             loadClients();
+            break;
+        case 'settings':
+            loadAdmins();
+            setupPasswordChangeForm();
             break;
     }
 }
@@ -221,11 +234,26 @@ function renderVehicles(vehiclesList) {
                     </div>
                 </td>
                 <td><span class="status-badge">${escapeHtml(vehicle.type)}</span></td>
-                <td><strong>${formatPriceWithCurrency ? formatPriceWithCurrency(vehicle.price_per_day) : parseFloat(vehicle.price_per_day).toFixed(2) + ' €'}</strong></td>
+                <td><strong>${formatPriceWithCurrency(vehicle.price_per_day)}</strong></td>
                 <td>
-                    <span class="status-badge ${vehicle.available ? 'status-active' : 'status-cancelled'}">
-                        ${vehicle.available ? 'Disponible' : 'Indisponible'}
-                    </span>
+                    <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <span class="status-badge ${vehicle.available ? 'status-active' : 'status-cancelled'}">
+                            ${vehicle.available ? 'Disponible' : 'Indisponible'}
+                        </span>
+                        ${vehicle.available_from || vehicle.available_to ? `
+                            <small style="color: var(--text-secondary); font-size: 0.75rem;">
+                                ${vehicle.available_from ? 'Du: ' + new Date(vehicle.available_from).toLocaleDateString('fr-FR') : ''}
+                                ${vehicle.available_from && vehicle.available_to ? '<br>' : ''}
+                                ${vehicle.available_to ? 'Au: ' + new Date(vehicle.available_to).toLocaleDateString('fr-FR') : ''}
+                            </small>
+                        ` : ''}
+                        <button class="btn-icon" onclick="toggleVehicleAvailability(${vehicle.id}, ${vehicle.available ? 0 : 1})" 
+                                style="padding: 0.25rem 0.5rem; font-size: 0.75rem; margin-top: 0.25rem;"
+                                title="${vehicle.available ? 'Marquer comme indisponible' : 'Marquer comme disponible'}">
+                            <i class="fas fa-${vehicle.available ? 'ban' : 'check'}"></i>
+                            ${vehicle.available ? 'Désactiver' : 'Activer'}
+                        </button>
+                    </div>
                 </td>
                 <td>
                     <div style="display: flex; gap: 0.5rem;">
@@ -317,7 +345,7 @@ function renderBookings(bookingsList) {
                         <small style="color: var(--text-secondary);">${days} jour(s)</small>
                     </div>
                 </td>
-                <td><strong style="color: var(--primary);">${formatPriceWithCurrency ? formatPriceWithCurrency(booking.total_price) : parseFloat(booking.total_price).toFixed(2) + ' €'}</strong></td>
+                <td><strong style="color: var(--primary);">${formatPriceWithCurrency ? formatPriceWithCurrency(booking.total_price) : parseFloat(booking.total_price).toFixed(2) + ' DH'}</strong></td>
                 <td>
                     <span class="status-badge status-${booking.status}">
                         ${getStatusLabel(booking.status)}
@@ -498,7 +526,23 @@ function showVehicleModal(vehicle = null) {
         document.getElementById('vehicle-transmission').value = vehicle.transmission || 'Auto';
         document.getElementById('vehicle-doors').value = vehicle.doors || 4;
         document.getElementById('vehicle-rating').value = vehicle.rating || 4.5;
+        document.getElementById('vehicle-description').value = vehicle.description || '';
         document.getElementById('vehicle-available').checked = vehicle.available !== false;
+        
+        // Set availability dates
+        if (vehicle.available_from) {
+            const fromDate = new Date(vehicle.available_from);
+            document.getElementById('vehicle-available-from').value = fromDate.toISOString().split('T')[0];
+        } else {
+            document.getElementById('vehicle-available-from').value = '';
+        }
+        
+        if (vehicle.available_to) {
+            const toDate = new Date(vehicle.available_to);
+            document.getElementById('vehicle-available-to').value = toDate.toISOString().split('T')[0];
+        } else {
+            document.getElementById('vehicle-available-to').value = '';
+        }
         
         // Show existing image if available
         if (vehicle.image_url) {
@@ -551,9 +595,9 @@ function createVehicleModal() {
                     
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="vehicle-price">Prix par jour (EUR) *</label>
-                            <small style="color: #6b7280; display: block; margin-top: 0.25rem;">Les prix sont stockés en EUR et convertis automatiquement selon la devise sélectionnée</small>
-                            <input type="number" id="vehicle-price" name="price_per_day" required step="0.01" min="0" placeholder="Ex: 1200.00">
+                            <label for="vehicle-price">Prix par jour (MAD/DH) *</label>
+                            <small style="color: #6b7280; display: block; margin-top: 0.25rem;">Les prix sont stockés en MAD (Dirham Marocain) et convertis automatiquement selon la devise sélectionnée</small>
+                            <input type="number" id="vehicle-price" name="price_per_day" required step="0.01" min="0" placeholder="Ex: 12960.00">
                         </div>
                         <div class="form-group">
                             <label for="vehicle-image">Image du véhicule</label>
@@ -603,10 +647,33 @@ function createVehicleModal() {
                     </div>
                     
                     <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="vehicle-available" name="available" checked>
-                            <span>Véhicule disponible</span>
-                        </label>
+                        <label for="vehicle-description">Description du véhicule</label>
+                        <textarea id="vehicle-description" name="description" rows="4" placeholder="Décrivez les caractéristiques, équipements et avantages de ce véhicule..."></textarea>
+                        <small style="color: #6b7280; display: block; margin-top: 0.25rem;">Cette description sera affichée sur la page de détails du véhicule</small>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="vehicle-available" name="available" checked>
+                                <span>Véhicule disponible</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="vehicle-available-from">Disponible à partir de (optionnel)</label>
+                            <input type="date" id="vehicle-available-from" name="available_from" 
+                                   placeholder="Date de début de disponibilité">
+                            <small style="color: #6b7280; display: block; margin-top: 0.25rem;">Laisser vide si toujours disponible</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="vehicle-available-to">Disponible jusqu'au (optionnel)</label>
+                            <input type="date" id="vehicle-available-to" name="available_to" 
+                                   placeholder="Date de fin de disponibilité">
+                            <small style="color: #6b7280; display: block; margin-top: 0.25rem;">Laisser vide si toujours disponible</small>
+                        </div>
                     </div>
                     
                     <div class="modal-actions">
@@ -785,7 +852,10 @@ async function handleVehicleSubmit(e) {
         transmission: document.getElementById('vehicle-transmission').value || 'Auto',
         doors: parseInt(document.getElementById('vehicle-doors').value) || 4,
         rating: parseFloat(document.getElementById('vehicle-rating').value) || 4.5,
-        available: document.getElementById('vehicle-available').checked ? 1 : 0
+        description: document.getElementById('vehicle-description').value.trim() || null,
+        available: document.getElementById('vehicle-available').checked ? 1 : 0,
+        available_from: document.getElementById('vehicle-available-from').value || null,
+        available_to: document.getElementById('vehicle-available-to').value || null
     };
     
     // Validate required fields
@@ -1218,6 +1288,42 @@ window.refreshLogs = refreshLogs;
 window.addVehicle = addVehicle;
 window.editVehicle = editVehicle;
 window.deleteVehicle = deleteVehicle;
+
+// Toggle vehicle availability
+async function toggleVehicleAvailability(id, newStatus) {
+    try {
+        const vehicle = vehicles.find(v => v.id == id);
+        if (!vehicle) {
+            showToast('Véhicule non trouvé', 'error');
+            return;
+        }
+
+        const response = await fetch(`backend.php?action=vehicles/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                available: newStatus
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(`Véhicule ${newStatus ? 'activé' : 'désactivé'} avec succès`, 'success');
+            loadVehicles();
+        } else {
+            showToast(result.error || 'Erreur lors de la mise à jour', 'error');
+        }
+    } catch (error) {
+        console.error('Error toggling vehicle availability:', error);
+        showToast('Erreur lors de la mise à jour', 'error');
+    }
+}
+
+window.toggleVehicleAvailability = toggleVehicleAvailability;
 window.updateBookingStatus = updateBookingStatus;
 window.closeVehicleModal = closeVehicleModal;
 window.removeImage = removeImage;
@@ -1336,4 +1442,360 @@ window.contactClient = contactClient;
 window.emailClient = emailClient;
 window.whatsappClient = whatsappClient;
 window.callClient = callClient;
+
+// Admin Management Functions
+let admins = [];
+
+async function loadAdmins() {
+    try {
+        const response = await fetch('backend.php?action=admins', {
+            credentials: 'same-origin'
+        });
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+            admins = data.data;
+            displayAdmins(admins);
+        } else {
+            document.getElementById('admins-table-body').innerHTML = 
+                '<tr><td colspan="5" class="loading">Erreur: ' + (data.error || 'Erreur inconnue') + '</td></tr>';
+        }
+    } catch (error) {
+        console.error('Error loading admins:', error);
+        document.getElementById('admins-table-body').innerHTML = 
+            '<tr><td colspan="5" class="loading">Erreur lors du chargement</td></tr>';
+    }
+}
+
+function displayAdmins(adminsList) {
+    const tbody = document.getElementById('admins-table-body');
+    if (!tbody) return;
+
+    if (adminsList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="loading">Aucun administrateur trouvé</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = adminsList.map(admin => {
+        const statusClass = admin.is_active ? 'status-active' : 'status-inactive';
+        const statusText = admin.is_active ? 'Actif' : 'Inactif';
+        const createdDate = new Date(admin.created_at).toLocaleDateString('fr-FR');
+        
+        return `
+            <tr>
+                <td><strong>${escapeHtml(admin.full_name)}</strong></td>
+                <td>${escapeHtml(admin.email)}</td>
+                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                <td>${createdDate}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button onclick="editAdmin(${admin.id})" class="btn-icon" title="Modifier">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="toggleAdminStatus(${admin.id}, ${admin.is_active ? 0 : 1})" 
+                                class="btn-icon" title="${admin.is_active ? 'Désactiver' : 'Activer'}">
+                            <i class="fas fa-${admin.is_active ? 'ban' : 'check'}"></i>
+                        </button>
+                        <button onclick="deleteAdmin(${admin.id})" 
+                                class="btn-icon btn-danger" title="Supprimer">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function setupPasswordChangeForm() {
+    const form = document.getElementById('change-password-form');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const currentPassword = document.getElementById('current-password').value;
+        const newPassword = document.getElementById('new-password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+
+        if (newPassword !== confirmPassword) {
+            showToast('Les nouveaux mots de passe ne correspondent pas', 'error');
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            showToast('Le mot de passe doit contenir au moins 6 caractères', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('backend.php?action=admins/change-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    current_password: currentPassword,
+                    new_password: newPassword,
+                    confirm_password: confirmPassword
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                showToast('Mot de passe changé avec succès', 'success');
+                form.reset();
+            } else {
+                showToast(result.error || 'Erreur lors du changement de mot de passe', 'error');
+            }
+        } catch (error) {
+            console.error('Error changing password:', error);
+            showToast('Erreur lors du changement de mot de passe', 'error');
+        }
+    });
+}
+
+function showAddAdminModal() {
+    showAdminModal();
+}
+
+function showAdminModal(admin = null) {
+    const modal = document.getElementById('admin-modal');
+    if (modal) {
+        modal.remove();
+    }
+
+    const modalHTML = `
+        <div id="admin-modal" class="modal show">
+            <div class="modal-overlay" onclick="closeAdminModal()"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title">${admin ? 'Modifier l\'administrateur' : 'Ajouter un administrateur'}</h2>
+                    <button class="modal-close" onclick="closeAdminModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="admin-form" class="modal-form">
+                    <div class="form-group">
+                        <label for="admin-full-name">Nom complet *</label>
+                        <input type="text" id="admin-full-name" name="full_name" required 
+                               value="${admin ? escapeHtml(admin.full_name) : ''}" 
+                               placeholder="Ex: John Doe">
+                    </div>
+                    <div class="form-group">
+                        <label for="admin-email-input">Email *</label>
+                        <input type="email" id="admin-email-input" name="email" required 
+                               value="${admin ? escapeHtml(admin.email) : ''}" 
+                               placeholder="Ex: admin@rentcars.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="admin-password">Mot de passe ${admin ? '(laisser vide pour ne pas changer)' : '*'}</label>
+                        <input type="password" id="admin-password" name="password" 
+                               ${admin ? '' : 'required'} minlength="6"
+                               placeholder="Minimum 6 caractères">
+                        ${admin ? '<small style="color: #6b7280;">Laisser vide pour conserver le mot de passe actuel</small>' : ''}
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="admin-is-active" name="is_active" ${admin ? (admin.is_active ? 'checked' : '') : 'checked'}>
+                            <span>Compte actif</span>
+                        </label>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" onclick="closeAdminModal()">Annuler</button>
+                        <button type="submit" class="btn-primary">
+                            <span class="btn-text">${admin ? 'Enregistrer' : 'Créer'}</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    const form = document.getElementById('admin-form');
+    form.dataset.mode = admin ? 'edit' : 'add';
+    if (admin) {
+        form.dataset.adminId = admin.id;
+    }
+
+    form.addEventListener('submit', handleAdminSubmit);
+}
+
+function closeAdminModal() {
+    const modal = document.getElementById('admin-modal');
+    if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+async function handleAdminSubmit(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const mode = form.dataset.mode;
+    const adminId = form.dataset.adminId;
+
+    const data = {
+        full_name: document.getElementById('admin-full-name').value.trim(),
+        email: document.getElementById('admin-email-input').value.trim(),
+        is_active: document.getElementById('admin-is-active').checked ? 1 : 0
+    };
+
+    const password = document.getElementById('admin-password').value;
+    if (password) {
+        data.password = password;
+    }
+
+    if (!data.full_name || !data.email) {
+        showToast('Veuillez remplir tous les champs obligatoires', 'error');
+        return;
+    }
+
+    if (mode === 'add' && !password) {
+        showToast('Le mot de passe est requis pour un nouvel administrateur', 'error');
+        return;
+    }
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    const originalText = submitBtn.querySelector('.btn-text').textContent;
+    submitBtn.querySelector('.btn-text').textContent = 'Traitement...';
+
+    try {
+        let response;
+        if (mode === 'edit' && adminId) {
+            response = await fetch(`backend.php?action=admins/${adminId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(data)
+            });
+        } else {
+            response = await fetch('backend.php?action=admins', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(data)
+            });
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(mode === 'edit' ? 'Administrateur modifié avec succès' : 'Administrateur créé avec succès', 'success');
+            closeAdminModal();
+            setTimeout(() => {
+                loadAdmins();
+            }, 500);
+        } else {
+            console.error('Admin save error:', result);
+            const errorMsg = result.error || 'Erreur lors de l\'enregistrement';
+            showToast(errorMsg, 'error');
+            
+            // If unauthorized, suggest reloading
+            if (result.error && result.error.includes('Unauthorized')) {
+                setTimeout(() => {
+                    if (confirm('Votre session a expiré. Voulez-vous recharger la page pour vous reconnecter?')) {
+                        window.location.reload();
+                    }
+                }, 2000);
+            }
+        }
+    } catch (error) {
+        console.error('Error saving admin:', error);
+        showToast('Erreur lors de l\'enregistrement: ' + (error.message || 'Erreur inconnue'), 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.querySelector('.btn-text').textContent = originalText;
+    }
+}
+
+function editAdmin(id) {
+    const admin = admins.find(a => a.id == id);
+    if (admin) {
+        showAdminModal(admin);
+    } else {
+        showToast('Administrateur non trouvé', 'error');
+    }
+}
+
+async function toggleAdminStatus(id, newStatus) {
+    const admin = admins.find(a => a.id == id);
+    if (!admin) {
+        showToast('Administrateur non trouvé', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`backend.php?action=admins/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                is_active: newStatus
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(`Administrateur ${newStatus ? 'activé' : 'désactivé'} avec succès`, 'success');
+            loadAdmins();
+        } else {
+            showToast(result.error || 'Erreur lors de la mise à jour', 'error');
+        }
+    } catch (error) {
+        console.error('Error toggling admin status:', error);
+        showToast('Erreur lors de la mise à jour', 'error');
+    }
+}
+
+async function deleteAdmin(id) {
+    const admin = admins.find(a => a.id == id);
+    if (!admin) {
+        showToast('Administrateur non trouvé', 'error');
+        return;
+    }
+
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer l'administrateur "${admin.full_name}" ? Cette action est irréversible.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`backend.php?action=admins/${id}`, {
+            method: 'DELETE',
+            credentials: 'same-origin'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('Administrateur supprimé avec succès', 'success');
+            loadAdmins();
+        } else {
+            showToast(result.error || 'Erreur lors de la suppression', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting admin:', error);
+        showToast('Erreur lors de la suppression', 'error');
+    }
+}
+
+// Make functions globally available
+window.showAddAdminModal = showAddAdminModal;
+window.closeAdminModal = closeAdminModal;
+window.editAdmin = editAdmin;
+window.toggleAdminStatus = toggleAdminStatus;
+window.deleteAdmin = deleteAdmin;
 

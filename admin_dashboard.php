@@ -29,7 +29,7 @@ $stats = $auth->getStats();
     <aside class="sidebar">
         <div class="sidebar-header">
             <div class="logo-container">
-                <img src="images/logo.png" alt="Rentcars Logo" class="logo">
+                <img src="logo/logo1.png" alt="Rentcars Logo" class="logo">
                 <h2>Rentcars</h2>
             </div>
         </div>
@@ -134,12 +134,12 @@ $stats = $auth->getStats();
 
                 <div class="stat-card stat-card-warning">
                     <div class="stat-icon">
-                        <i class="fas fa-euro-sign"></i>
+                        <i class="fas fa-coins"></i>
                     </div>
                     <div class="stat-content">
                         <h3>Revenus totaux</h3>
                         <p class="stat-value" data-target="<?php echo number_format($stats['total_revenue'] ?? 0, 0, ',', ' '); ?>">0</p>
-                        <span class="stat-label">€</span>
+                        <span class="stat-label">DH</span>
                     </div>
                     <div class="stat-wave"></div>
                 </div>
@@ -151,7 +151,7 @@ $stats = $auth->getStats();
                     <div class="stat-content">
                         <h3>Ce mois</h3>
                         <p class="stat-value" data-target="<?php echo number_format($stats['month_revenue'] ?? 0, 0, ',', ' '); ?>">0</p>
-                        <span class="stat-label">€ de revenus</span>
+                        <span class="stat-label">DH de revenus</span>
                     </div>
                     <div class="stat-wave"></div>
                 </div>
@@ -320,17 +320,71 @@ $stats = $auth->getStats();
                 <h2>Paramètres</h2>
             </div>
             <div class="settings-container">
+                <!-- Account Information -->
                 <div class="settings-card">
                     <h3>Informations du compte</h3>
                     <div class="settings-form">
                         <div class="form-group">
                             <label>Nom complet</label>
-                            <input type="text" value="<?php echo htmlspecialchars($admin['name']); ?>" readonly>
+                            <input type="text" id="admin-name" value="<?php echo htmlspecialchars($admin['name']); ?>" readonly>
                         </div>
                         <div class="form-group">
                             <label>Email</label>
-                            <input type="email" value="<?php echo htmlspecialchars($admin['email']); ?>" readonly>
+                            <input type="email" id="admin-email" value="<?php echo htmlspecialchars($admin['email']); ?>" readonly>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Change Password -->
+                <div class="settings-card">
+                    <h3>Changer le mot de passe</h3>
+                    <form id="change-password-form" class="settings-form">
+                        <div class="form-group">
+                            <label for="current-password">Mot de passe actuel *</label>
+                            <input type="password" id="current-password" name="current_password" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="new-password">Nouveau mot de passe *</label>
+                            <input type="password" id="new-password" name="new_password" required minlength="6">
+                            <small style="color: #6b7280; display: block; margin-top: 0.25rem;">Minimum 6 caractères</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="confirm-password">Confirmer le nouveau mot de passe *</label>
+                            <input type="password" id="confirm-password" name="confirm_password" required minlength="6">
+                        </div>
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-key"></i>
+                            Changer le mot de passe
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Admin Management -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <h3>Gestion des administrateurs</h3>
+                        <button class="btn-primary" onclick="showAddAdminModal()">
+                            <i class="fas fa-plus"></i>
+                            <span>Ajouter un administrateur</span>
+                        </button>
+                    </div>
+                    <div class="admins-table-container">
+                        <table class="admins-table">
+                            <thead>
+                                <tr>
+                                    <th>Nom</th>
+                                    <th>Email</th>
+                                    <th>Statut</th>
+                                    <th>Date de création</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admins-table-body">
+                                <tr>
+                                    <td colspan="5" class="loading">Chargement des administrateurs...</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
