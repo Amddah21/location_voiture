@@ -67,6 +67,14 @@ $stats = $auth->getStats();
                 <i class="fas fa-tags"></i>
                 <span>Marques</span>
             </a>
+            <a href="#offers" class="nav-item" data-section="offers">
+                <i class="fas fa-percent"></i>
+                <span>Offres & Promotions</span>
+            </a>
+            <a href="#reviews" class="nav-item" data-section="reviews">
+                <i class="fas fa-star"></i>
+                <span>Avis clients</span>
+            </a>
             <a href="#clients" class="nav-item" data-section="clients">
                 <i class="fas fa-users"></i>
                 <span>Clients</span>
@@ -338,6 +346,90 @@ $stats = $auth->getStats();
                     <tbody id="brands-tbody">
                         <tr>
                             <td colspan="6" class="loading">Chargement...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Offers Section -->
+        <section id="offers-section" class="content-section">
+            <div class="section-header">
+                <div>
+                    <h2>Gestion des offres et promotions</h2>
+                    <p class="section-subtitle">Créez et gérez les offres spéciales et promotions pour vos véhicules</p>
+                </div>
+                <button class="btn-primary" onclick="addOffer()">
+                    <i class="fas fa-plus"></i>
+                    <span>Ajouter une offre</span>
+                </button>
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="offers-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Titre</th>
+                            <th>Type</th>
+                            <th>Réduction</th>
+                            <th>Véhicule</th>
+                            <th>Date début</th>
+                            <th>Date fin</th>
+                            <th>Statut</th>
+                            <th>Ventes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="offers-tbody">
+                        <tr>
+                            <td colspan="10" class="loading">Chargement des offres...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Reviews Section -->
+        <section id="reviews-section" class="content-section">
+            <div class="section-header">
+                <div>
+                    <h2>Gestion des avis clients</h2>
+                    <p class="section-subtitle">Approuvez, modifiez ou supprimez les avis des clients</p>
+                </div>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <button class="btn-secondary" onclick="loadReviews()" title="Actualiser">
+                        <i class="fas fa-sync-alt"></i>
+                        <span>Actualiser</span>
+                    </button>
+                    <div class="filter-group">
+                        <select id="review-filter" class="filter-select" onchange="filterReviews(this.value)">
+                            <option value="all">Tous les avis</option>
+                            <option value="approved">Approuvés</option>
+                            <option value="pending">En attente</option>
+                            <option value="featured">Mis en avant</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="reviews-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Client</th>
+                            <th>Véhicule</th>
+                            <th>Note globale</th>
+                            <th>Service</th>
+                            <th>Véhicule</th>
+                            <th>Commentaire</th>
+                            <th>Statut</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reviews-tbody">
+                        <tr>
+                            <td colspan="10" class="loading">Chargement des avis...</td>
                         </tr>
                     </tbody>
                 </table>

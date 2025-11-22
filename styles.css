@@ -438,58 +438,71 @@ a {
 }
 
 /* ============================================
-   PREMIUM BRAND LOGOS SECTION
+   PREMIUM BRAND LOGOS SECTION - REDESIGNED
    ============================================ */
 .partner-logos {
-  padding: 6rem 0;
-  background: linear-gradient(135deg, #0a0f1a 0%, #0f172a 25%, #1e293b 50%, #0f172a 75%, #0a0f1a 100%);
-  background-size: 400% 400%;
+  padding: 4rem 0;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
   position: relative;
   overflow: hidden;
-  animation: backgroundShift 15s ease infinite;
+  isolation: isolate;
 }
 
-@keyframes backgroundShift {
-  0%, 100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
+@media (max-width: 768px) {
+  .partner-logos {
+    padding: 3rem 0;
   }
 }
 
-/* Animated Background Elements */
+/* Modern Animated Background */
 .partner-logos::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, 
-    transparent 0%, 
-    rgba(47, 158, 68, 0.5) 25%,
-    rgba(65, 184, 131, 0.8) 50%,
-    rgba(47, 158, 68, 0.5) 75%,
-    transparent 100%);
-  background-size: 200% 100%;
-  animation: gradientFlow 3s ease infinite;
-  box-shadow: 0 0 20px rgba(47, 158, 68, 0.3);
+  inset: 0;
+  background: 
+    radial-gradient(circle at 20% 30%, rgba(47, 158, 68, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(65, 184, 131, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(47, 158, 68, 0.06) 0%, transparent 70%);
+  animation: backgroundPulse 8s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .partner-logos::after {
   content: '';
   position: absolute;
-  inset: 0;
-  background: 
-    radial-gradient(circle at 20% 30%, rgba(47, 158, 68, 0.15) 0%, transparent 45%),
-    radial-gradient(circle at 80% 70%, rgba(65, 184, 131, 0.15) 0%, transparent 45%),
-    radial-gradient(circle at 50% 50%, rgba(47, 158, 68, 0.08) 0%, transparent 65%),
-    radial-gradient(circle at 10% 80%, rgba(47, 158, 68, 0.1) 0%, transparent 40%),
-    radial-gradient(circle at 90% 20%, rgba(65, 184, 131, 0.1) 0%, transparent 40%);
-  animation: pulseGlow 5s ease-in-out infinite, gradientMove 20s ease infinite;
-  pointer-events: none;
-  z-index: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(47, 158, 68, 0.6) 50%,
+    transparent 100%);
+  animation: shimmerLine 3s ease-in-out infinite;
+  z-index: 1;
+}
+
+@keyframes backgroundPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes shimmerLine {
+  0%, 100% {
+    opacity: 0.3;
+    transform: translateX(-100%);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(100%);
+  }
 }
 
 @keyframes gradientMove {
@@ -536,54 +549,52 @@ a {
 
 .partner-logos__header {
   text-align: center;
-  margin-bottom: 3.5rem;
-  animation: fadeInUp 0.8s ease-out;
+  margin-bottom: 3rem;
   position: relative;
   z-index: 1;
+  animation: fadeInUp 0.8s ease-out;
+}
+
+@media (max-width: 768px) {
+  .partner-logos__header {
+    margin-bottom: 2rem;
+  }
 }
 
 .partner-logos__subtitle {
   display: inline-block;
   text-transform: uppercase;
-  font-weight: 700;
-  font-size: 0.8125rem;
-  letter-spacing: 0.2em;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
   color: #2F9E44;
-  background: linear-gradient(135deg, rgba(47, 158, 68, 0.15) 0%, rgba(65, 184, 131, 0.15) 100%);
-  padding: 0.625rem 1.25rem;
-  border-radius: 999px;
-  margin-bottom: 1.25rem;
-  border: 1px solid rgba(47, 158, 68, 0.3);
-  box-shadow: 0 4px 12px rgba(47, 158, 68, 0.2),
-              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: rgba(47, 158, 68, 0.1);
+  padding: 0.5rem 1.5rem;
+  border-radius: 50px;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(47, 158, 68, 0.2);
   backdrop-filter: blur(10px);
-  animation: subtitlePulse 2s ease-in-out infinite;
+  transition: all 0.3s ease;
 }
 
-@keyframes subtitlePulse {
-  0%, 100% {
-    box-shadow: 0 4px 12px rgba(47, 158, 68, 0.2),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  }
-  50% {
-    box-shadow: 0 6px 20px rgba(47, 158, 68, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  }
+.partner-logos__subtitle:hover {
+  background: rgba(47, 158, 68, 0.15);
+  border-color: rgba(47, 158, 68, 0.3);
+  transform: translateY(-2px);
 }
 
 .partner-logos__title {
-  font-size: clamp(2rem, 4vw, 3rem);
-  background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 50%, #ffffff 100%);
-  background-size: 200% 200%;
+  font-size: clamp(2.25rem, 5vw, 3.5rem);
+  background: linear-gradient(135deg, #ffffff 0%, #e8f5e9 50%, #ffffff 100%);
+  background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   font-family: var(--font-primary);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  margin: 0;
-  text-shadow: 0 4px 20px rgba(255, 255, 255, 0.1);
-  animation: titleShimmer 3s ease-in-out infinite;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0.5rem 0 0 0;
+  animation: titleShimmer 4s ease-in-out infinite;
   position: relative;
   display: inline-block;
 }
@@ -591,17 +602,17 @@ a {
 .partner-logos__title::after {
   content: '';
   position: absolute;
-  bottom: -10px;
+  bottom: -12px;
   left: 50%;
   transform: translateX(-50%);
-  width: 80px;
-  height: 4px;
+  width: 100px;
+  height: 3px;
   background: linear-gradient(90deg, 
     transparent 0%,
-    rgba(47, 158, 68, 0.8) 50%,
+    rgba(47, 158, 68, 0.6) 50%,
     transparent 100%);
   border-radius: 2px;
-  animation: underlineGrow 1s ease-out 0.5s forwards;
+  animation: underlineGrow 1.2s ease-out 0.6s forwards;
   opacity: 0;
 }
 
@@ -620,62 +631,96 @@ a {
     opacity: 0;
   }
   100% {
-    width: 120px;
+    width: 100px;
     opacity: 1;
   }
 }
 
-/* Brands Grid */
+/* Brands Grid - Optimized Layout */
 .brands-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 1.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.5rem;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 0 2rem;
   position: relative;
   z-index: 1;
 }
 
-/* Brand Card */
+@media (min-width: 1400px) {
+  .brands-grid {
+    grid-template-columns: repeat(6, 1fr);
+    max-width: 1400px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .brands-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1.25rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .brands-grid {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 1rem;
+    padding: 0 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .brands-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+}
+
+/* Brand Card - Optimized Size & Design */
 .brand-card {
   position: relative;
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(255, 255, 255, 0.08) 25%,
-    rgba(255, 255, 255, 0.05) 50%,
-    rgba(255, 255, 255, 0.08) 75%,
-    rgba(255, 255, 255, 0.12) 100%);
-  backdrop-filter: blur(25px) saturate(180%);
-  -webkit-backdrop-filter: blur(25px) saturate(180%);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-radius: 20px;
-  padding: 2.5rem 2rem;
+  padding: 2rem 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  aspect-ratio: 1.2;
+  aspect-ratio: 1.4;
+  min-height: 140px;
+  max-height: 180px;
   cursor: pointer;
-  transition: all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
-  border: 2px solid rgba(255, 255, 255, 0.15);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
   box-shadow: 
-    0 10px 40px rgba(0, 0, 0, 0.4),
-    0 5px 15px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.1),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   overflow: hidden;
   opacity: 0;
-  transform: translateY(40px) scale(0.85) rotateX(10deg);
-  animation: brandCardEntrance 1.1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
-             subtleFloat 6s ease-in-out infinite,
-             cardGlow 3s ease-in-out infinite,
-             borderPulse 4s ease-in-out infinite;
-  animation-delay: var(--card-delay, 0s), 1.8s, 0s, 0s;
-  will-change: transform, box-shadow, filter, border-color;
-  backface-visibility: hidden;
-  -webkit-font-smoothing: antialiased;
-  transform-style: preserve-3d;
-  perspective: 1000px;
+  transform: translateY(30px) scale(0.9);
+  animation: brandCardEntrance 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards,
+             subtleFloat 8s ease-in-out infinite;
+  animation-delay: var(--card-delay, 0s), 1.5s;
+  will-change: transform;
+}
+
+@media (max-width: 768px) {
+  .brand-card {
+    padding: 1.5rem 1rem;
+    min-height: 120px;
+    max-height: 160px;
+    aspect-ratio: 1.3;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-card {
+    padding: 1.25rem 0.75rem;
+    min-height: 110px;
+    max-height: 140px;
+  }
 }
 
 @keyframes borderPulse {
@@ -761,25 +806,14 @@ a {
 }
 
 .brand-card:hover {
-  transform: translateY(-20px) scale(1.12) rotateY(5deg) rotateX(-5deg) rotateZ(1deg);
+  transform: translateY(-12px) scale(1.05);
   box-shadow: 
-    0 35px 70px rgba(47, 158, 68, 0.5),
-    0 20px 40px rgba(65, 184, 131, 0.4),
-    0 10px 20px rgba(0, 0, 0, 0.3),
-    0 0 0 3px rgba(47, 158, 68, 0.6),
-    0 0 60px rgba(47, 158, 68, 0.7),
-    0 0 100px rgba(47, 158, 68, 0.3),
-    inset 0 2px 4px rgba(255, 255, 255, 0.4),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.2);
-  border-color: rgba(47, 158, 68, 0.7);
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.25) 0%,
-    rgba(255, 255, 255, 0.2) 25%,
-    rgba(255, 255, 255, 0.18) 50%,
-    rgba(255, 255, 255, 0.2) 75%,
-    rgba(255, 255, 255, 0.25) 100%);
-  filter: brightness(1.3) contrast(1.15) saturate(1.2);
-  animation-play-state: paused, paused, running, paused;
+    0 20px 60px rgba(47, 158, 68, 0.4),
+    0 10px 30px rgba(65, 184, 131, 0.3),
+    0 0 0 2px rgba(47, 158, 68, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border-color: rgba(47, 158, 68, 0.6);
+  background: rgba(255, 255, 255, 0.12);
   z-index: 10;
 }
 
@@ -839,25 +873,13 @@ a {
   }
 }
 
-/* Enhanced Continuous Float Animation with More Movement */
+/* Smooth Float Animation */
 @keyframes subtleFloat {
-  0% {
-    transform: translateY(0) scale(1) rotateY(0deg) rotateX(0deg) rotateZ(0deg);
+  0%, 100% {
+    transform: translateY(0) scale(1);
   }
-  20% {
-    transform: translateY(-4px) scale(1.012) rotateY(1.5deg) rotateX(-0.8deg) rotateZ(0.3deg);
-  }
-  40% {
-    transform: translateY(-5px) scale(1.018) rotateY(0.8deg) rotateX(-0.3deg) rotateZ(-0.2deg);
-  }
-  60% {
-    transform: translateY(-3px) scale(1.015) rotateY(-0.5deg) rotateX(0.5deg) rotateZ(0.4deg);
-  }
-  80% {
-    transform: translateY(-2px) scale(1.01) rotateY(-1deg) rotateX(0.8deg) rotateZ(-0.3deg);
-  }
-  100% {
-    transform: translateY(0) scale(1) rotateY(0deg) rotateX(0deg) rotateZ(0deg);
+  50% {
+    transform: translateY(-8px) scale(1.01);
   }
 }
 
@@ -919,7 +941,7 @@ a {
   animation-delay: 0.6s; 
 }
 
-/* Brand Logo Wrapper */
+/* Brand Logo Wrapper - Clean Design */
 .brand-logo-wrapper {
   position: relative;
   width: 100%;
@@ -928,56 +950,21 @@ a {
   align-items: center;
   justify-content: center;
   z-index: 2;
-  overflow: visible;
-  isolation: isolate;
-}
-
-/* Auto-changing Logo Carousel */
-.brand-logo-carousel {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  overflow: hidden;
-}
-
-.brand-logo-container {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.brand-logo-slide {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transform: scale(0.8) translateY(20px) rotateY(90deg);
-  animation: logoAutoChange calc(var(--rotation-speed, 4s) * var(--total-brands, 7)) ease-in-out infinite;
-  animation-fill-mode: both;
-  will-change: opacity, transform, filter;
-  backface-visibility: hidden;
 }
 
 .brand-logo-slide .brand-logo {
   width: 100%;
   height: auto;
-  max-width: 120px;
-  max-height: 60px;
+  max-width: 140px;
+  max-height: 70px;
   object-fit: contain;
-  filter: grayscale(20%) opacity(0.9) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2)) 
-          brightness(1.1) contrast(1.1);
-  transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  filter: grayscale(10%) opacity(0.95) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3)) 
+          brightness(1.15) contrast(1.1);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   z-index: 2;
   user-select: none;
   -webkit-user-drag: none;
-  transform: scale(1) translateZ(0);
 }
 
 @keyframes logoAutoChange {
@@ -1029,11 +1016,10 @@ a {
 }
 
 .brand-card:hover .brand-logo-slide .brand-logo {
-  transform: scale(1.2) rotateZ(2deg) translateZ(20px) translateY(-2px);
+  transform: scale(1.15);
   filter: grayscale(0%) opacity(1) 
-          drop-shadow(0 10px 25px rgba(47, 158, 68, 0.6))
-          drop-shadow(0 6px 15px rgba(65, 184, 131, 0.5))
-          brightness(1.4) contrast(1.25) saturate(1.3);
+          drop-shadow(0 8px 20px rgba(47, 158, 68, 0.5))
+          brightness(1.3) contrast(1.2) saturate(1.2);
 }
 
 /* Pause all slides on hover and enhance visible one */
@@ -1133,159 +1119,70 @@ a {
   to { transform: rotate(360deg); }
 }
 
-/* Brand Logo Image */
+/* Brand Logo Image - Optimized Size */
 .brand-logo {
   width: 100%;
   height: auto;
   max-width: 120px;
   max-height: 60px;
+  min-height: 40px;
   object-fit: contain;
-  filter: grayscale(20%) opacity(0.9) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2)) 
-          brightness(1.1) contrast(1.1);
-  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  filter: grayscale(15%) opacity(0.95) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3)) 
+          brightness(1.15) contrast(1.1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   z-index: 2;
   user-select: none;
   -webkit-user-drag: none;
-  transform: scale(1) translateZ(0);
   opacity: 0;
-  animation: logoFadeInBounce 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: logoFadeIn 0.6s ease-out forwards;
+  animation-delay: calc(var(--card-delay, 0s) + 0.2s);
 }
 
-@keyframes logoFadeInBounce {
+@media (max-width: 768px) {
+  .brand-logo {
+    max-width: 100px;
+    max-height: 50px;
+    min-height: 35px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-logo {
+    max-width: 90px;
+    max-height: 45px;
+    min-height: 30px;
+  }
+}
+
+@keyframes logoFadeIn {
   0% {
     opacity: 0;
-    transform: scale(0.3) rotateZ(-10deg);
-    filter: grayscale(100%) opacity(0) blur(10px);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.1) rotateZ(2deg);
-    filter: grayscale(40%) opacity(0.8) blur(2px);
-  }
-  80% {
-    transform: scale(0.95) rotateZ(-1deg);
-    filter: grayscale(25%) opacity(0.95) blur(0px);
+    transform: scale(0.8);
   }
   100% {
     opacity: 1;
-    transform: scale(1) rotateZ(0deg);
-    filter: grayscale(20%) opacity(0.9) blur(0px);
+    transform: scale(1);
   }
 }
 
 .brand-card:hover .brand-logo {
-  transform: scale(1.25) rotateZ(3deg) translateZ(30px) translateY(-2px);
+  transform: scale(1.12);
   filter: grayscale(0%) opacity(1) 
-          drop-shadow(0 10px 25px rgba(47, 158, 68, 0.6))
-          drop-shadow(0 6px 15px rgba(65, 184, 131, 0.5))
-          drop-shadow(0 0 20px rgba(47, 158, 68, 0.4))
-          brightness(1.4) contrast(1.25) saturate(1.3);
-  animation: logoHoverPulse 1.2s ease-in-out infinite, logoFloat 2s ease-in-out infinite;
+          drop-shadow(0 8px 20px rgba(47, 158, 68, 0.5))
+          brightness(1.3) contrast(1.2) saturate(1.2);
 }
 
-@keyframes logoFloat {
-  0%, 100% {
-    transform: scale(1.25) rotateZ(3deg) translateZ(30px) translateY(-2px);
-  }
-  50% {
-    transform: scale(1.28) rotateZ(4deg) translateZ(35px) translateY(-4px);
-  }
-}
 
-@keyframes logoHoverPulse {
-  0%, 100% {
-    filter: grayscale(0%) opacity(1) 
-            drop-shadow(0 10px 25px rgba(47, 158, 68, 0.6))
-            drop-shadow(0 6px 15px rgba(65, 184, 131, 0.5))
-            brightness(1.4) contrast(1.25);
-  }
-  50% {
-    filter: grayscale(0%) opacity(1) 
-            drop-shadow(0 15px 35px rgba(47, 158, 68, 0.8))
-            drop-shadow(0 8px 20px rgba(65, 184, 131, 0.6))
-            drop-shadow(0 0 25px rgba(47, 158, 68, 0.5))
-            brightness(1.5) contrast(1.3);
-  }
-}
-
-/* Enhanced Shimmer Effect with Multiple Layers */
-.brand-logo-shimmer {
-  position: absolute;
-  top: 0;
-  left: -150%;
-  width: 150%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.15) 25%,
-    rgba(255, 255, 255, 0.75) 50%,
-    rgba(255, 255, 255, 0.15) 75%,
-    transparent 100%
-  );
-  transform: skewX(-30deg);
-  transition: left 0.7s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 3;
-  pointer-events: none;
-  filter: blur(3px);
-  animation: shimmerLoop 4s ease-in-out infinite;
-  box-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
-}
-
-@keyframes shimmerLoop {
-  0%, 100% {
-    left: -150%;
-    opacity: 0;
-  }
-  50% {
-    opacity: 0;
-  }
-  51% {
-    opacity: 1;
-  }
-  52% {
-    left: 150%;
-    opacity: 0;
-  }
-}
-
-.brand-card:hover .brand-logo-shimmer {
-  left: 150%;
-  transition: left 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: none;
-}
-
-/* Enhanced Entrance Animation with Bounce and Scale */
+/* Smooth Entrance Animation */
 @keyframes brandCardEntrance {
   0% {
     opacity: 0;
-    transform: translateY(60px) scale(0.6) rotateX(-20deg) rotateY(-15deg) rotateZ(-5deg);
-    filter: blur(15px) brightness(0.5);
-  }
-  30% {
-    opacity: 0.6;
-    transform: translateY(-10px) scale(1.1) rotateX(5deg) rotateY(5deg) rotateZ(2deg);
-    filter: blur(5px) brightness(0.8);
-  }
-  50% {
-    opacity: 0.9;
-    transform: translateY(5px) scale(0.95) rotateX(-2deg) rotateY(-2deg) rotateZ(-1deg);
-    filter: blur(1px) brightness(1);
-  }
-  70% {
-    opacity: 1;
-    transform: translateY(-3px) scale(1.03) rotateX(1deg) rotateY(1deg) rotateZ(0.5deg);
-    filter: blur(0px) brightness(1.1);
-  }
-  85% {
-    transform: translateY(1px) scale(0.99) rotateX(-0.5deg) rotateY(-0.5deg);
-    filter: blur(0px) brightness(1.05);
+    transform: translateY(30px) scale(0.9);
   }
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1) rotateX(0deg) rotateY(0deg) rotateZ(0deg);
-    filter: blur(0px) brightness(1);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -2109,5 +2006,371 @@ a {
   .modal-close {
     right: 1rem;
     top: 1rem;
+  }
+}
+
+/* Enhanced Booking Modal Styles */
+.booking-modal-enhanced {
+  width: min(95%, 900px) !important;
+  max-width: 900px;
+  padding: 2rem;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--text);
+}
+
+.modal-header .modal-close {
+  position: static;
+  float: none;
+}
+
+.booking-section {
+  margin-bottom: 1.5rem;
+}
+
+.booking-label {
+  display: block;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.booking-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.booking-input:focus {
+  outline: none;
+  border-color: var(--green-600);
+  box-shadow: 0 0 0 3px rgba(47, 158, 68, 0.1);
+}
+
+.input-with-clear {
+  position: relative;
+}
+
+.clear-input {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--muted);
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: var(--text-soft);
+  transition: all 0.2s ease;
+}
+
+.clear-input:hover {
+  background: var(--slate-600);
+  color: var(--white);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--green-600);
+}
+
+.booking-datetime-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.datetime-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.datetime-label {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.datetime-inputs {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.date-input-wrapper {
+  position: relative;
+  flex: 1;
+}
+
+.date-input {
+  width: 100%;
+  padding: 0.875rem 2.5rem 0.875rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  cursor: pointer;
+  background: var(--white);
+}
+
+.date-picker-btn {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--green-600);
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.time-select {
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  background: var(--white);
+  cursor: pointer;
+  min-width: 90px;
+}
+
+.time-select:focus {
+  outline: none;
+  border-color: var(--green-600);
+  box-shadow: 0 0 0 3px rgba(47, 158, 68, 0.1);
+}
+
+/* Calendar Widget */
+.calendar-widget {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: var(--muted);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.calendar-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.calendar-month {
+  background: var(--white);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.calendar-nav-btn {
+  background: none;
+  border: none;
+  color: var(--green-600);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: var(--radius-xs);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-nav-btn:hover {
+  background: var(--muted);
+}
+
+.calendar-month-title {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.calendar-weekday {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-soft);
+  padding: 0.5rem 0;
+  text-transform: uppercase;
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  position: relative;
+  color: var(--text);
+}
+
+.calendar-day:hover:not(.disabled):not(.selected-start):not(.selected-end):not(.in-range) {
+  background: var(--muted);
+}
+
+.calendar-day.disabled {
+  color: var(--text-soft);
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.calendar-day.other-month {
+  color: var(--text-soft);
+  opacity: 0.5;
+}
+
+.calendar-day.selected-start,
+.calendar-day.selected-end {
+  background: var(--green-600);
+  color: var(--white);
+  font-weight: 600;
+}
+
+.calendar-day.in-range {
+  background: rgba(47, 158, 68, 0.1);
+  color: var(--green-600);
+}
+
+.calendar-day.selected-start::after {
+  content: '→';
+  position: absolute;
+  right: 2px;
+  font-size: 0.7rem;
+}
+
+.calendar-day.selected-end::after {
+  content: '←';
+  position: absolute;
+  left: 2px;
+  font-size: 0.7rem;
+}
+
+.calendar-summary {
+  text-align: center;
+  padding: 1rem;
+  background: var(--white);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.booking-section-divider {
+  margin: 2rem 0 1.5rem 0;
+  padding-top: 1.5rem;
+  border-top: 2px solid var(--border);
+}
+
+.booking-section-divider h3 {
+  font-size: 1.1rem;
+  color: var(--text);
+  margin: 0;
+}
+
+.booking-total {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: var(--green-200);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--green-600);
+}
+
+.btn-booking-submit {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 1rem;
+}
+
+@media (max-width: 768px) {
+  .booking-modal-enhanced {
+    width: 95% !important;
+    padding: 1.5rem;
+  }
+
+  .booking-datetime-section {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .calendar-container {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .datetime-inputs {
+    flex-direction: column;
+  }
+
+  .time-select {
+    width: 100%;
   }
 }

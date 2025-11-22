@@ -19,34 +19,120 @@ function getStats()
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // Compter les clients satisfaits (réservations complétées)
-    $stmt = $pdo->query("SELECT COUNT(DISTINCT customer_email) as count FROM bookings WHERE status = 'completed'");
-    $happyCustomers = $stmt->fetchColumn();
+    // Compter les clients satisfaits (tous les clients uniques qui ont fait au moins une réservation)
+    $stmt = $pdo->query("SELECT COUNT(DISTINCT id) as count FROM clients WHERE total_bookings > 0");
+    $happyCustomers = (int)$stmt->fetchColumn();
+    
+    // Si aucun client dans la table clients, compter depuis bookings
+    if ($happyCustomers === 0) {
+      $stmt = $pdo->query("SELECT COUNT(DISTINCT customer_email) as count FROM bookings WHERE customer_email IS NOT NULL AND customer_email != ''");
+      $happyCustomers = (int)$stmt->fetchColumn();
+    }
 
-    // Compter les avis 5 étoiles
-    $stmt = $pdo->query("SELECT COUNT(*) as count FROM vehicles WHERE rating >= 4.5");
-    $fiveStarReviews = $stmt->fetchColumn();
+    // Compter les avis 5 étoiles réels depuis la table reviews
+    $stmt = $pdo->query("SELECT COUNT(*) as count FROM reviews WHERE rating = 5 AND is_approved = 1");
+    $fiveStarReviews = (int)$stmt->fetchColumn();
+    
+    // Si aucun avis 5 étoiles, compter les avis avec rating >= 4.5
+    if ($fiveStarReviews === 0) {
+      $stmt = $pdo->query("SELECT COUNT(*) as count FROM reviews WHERE rating >= 4.5 AND is_approved = 1");
+      $fiveStarReviews = (int)$stmt->fetchColumn();
+    }
+    
+    // Si toujours 0, compter depuis les véhicules avec rating >= 4.5
+    if ($fiveStarReviews === 0) {
+      $stmt = $pdo->query("SELECT COUNT(*) as count FROM vehicles WHERE rating >= 4.5");
+      $fiveStarReviews = (int)$stmt->fetchColumn();
+    }
 
-    // Villes desservies (fixe pour l'instant)
-    $citiesServed = 120;
+    // Compter les villes distinctes depuis les réservations
+    $stmt = $pdo->query("SELECT COUNT(DISTINCT pickup_location) as count FROM bookings WHERE pickup_location IS NOT NULL AND pickup_location != ''");
+    $citiesServed = (int)$stmt->fetchColumn();
+    
+    // Si aucune ville trouvée, utiliser une valeur par défaut réaliste
+    if ($citiesServed === 0) {
+      $citiesServed = 1; // Au moins la ville principale
+    }
+
+    // Formater les valeurs
+    $happyCustomersFormatted = $happyCustomers >= 1000 
+      ? number_format($happyCustomers / 1000, 1, ',', '') . 'k+' 
+      : ($happyCustomers > 0 ? number_format($happyCustomers, 0, ',', '') . '+' : '0');
+    
+    $fiveStarReviewsFormatted = $fiveStarReviews >= 1000 
+      ? number_format($fiveStarReviews / 1000, 1, ',', '') . 'k' 
+      : ($fiveStarReviews > 0 ? number_format($fiveStarReviews, 0, ',', '') : '0');
+    
+    $citiesServedFormatted = $citiesServed . '+';
 
     return [
-      'happy_customers' => $happyCustomers > 0 ? number_format($happyCustomers / 1000, 1) . 'k+' : '2,4k+',
-      'five_star_reviews' => $fiveStarReviews > 0 ? number_format($fiveStarReviews / 1000, 1) . 'k' : '1,8k',
-      'cities_served' => $citiesServed . '+'
+      'happy_customers' => $happyCustomersFormatted,
+      'five_star_reviews' => $fiveStarReviewsFormatted,
+      'cities_served' => $citiesServedFormatted
     ];
   } catch (PDOException $e) {
-    // En cas d'erreur, retourner des valeurs par défaut
+    // En cas d'erreur, essayer de retourner des valeurs minimales réalistes
+    error_log("Error getting stats: " . $e->getMessage());
     return [
-      'happy_customers' => '2,4k+',
-      'five_star_reviews' => '1,8k',
-      'cities_served' => '120+'
+      'happy_customers' => '0',
+      'five_star_reviews' => '0',
+      'cities_served' => '1+'
     ];
+  }
+}
+
+// Fonction pour obtenir l'offre active actuelle
+function getActiveOffer()
+{
+  try {
+    $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+    $pdo = new PDO($dsn, DB_USER, DB_PASS);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    // Récupérer l'offre active actuelle (dans la période de validité)
+    $stmt = $pdo->prepare("
+      SELECT o.*, v.name as vehicle_name, v.image_url as vehicle_image, v.price_per_day as vehicle_price
+      FROM offers o
+      LEFT JOIN vehicles v ON o.vehicle_id = v.id
+      WHERE o.is_active = 1
+        AND CURDATE() BETWEEN o.start_date AND o.end_date
+      ORDER BY o.created_at DESC
+      LIMIT 1
+    ");
+    $stmt->execute();
+    $offer = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($offer) {
+      // Calculer le prix avec la réduction
+      $originalPrice = (float)$offer['vehicle_price'];
+      $discountValue = (float)$offer['discount_value'];
+      $finalPrice = $originalPrice;
+
+      if ($offer['offer_type'] === 'percentage') {
+        $finalPrice = $originalPrice * (1 - $discountValue / 100);
+      } elseif ($offer['offer_type'] === 'fixed_amount') {
+        $finalPrice = max(0, $originalPrice - $discountValue);
+      }
+
+      $offer['final_price'] = $finalPrice;
+      $offer['original_price'] = $originalPrice;
+      
+      // Utiliser l'image de l'offre si disponible, sinon l'image du véhicule
+      $offer['display_image'] = !empty($offer['image_url']) ? $offer['image_url'] : $offer['vehicle_image'];
+    }
+
+    return $offer ? $offer : null;
+  } catch (PDOException $e) {
+    error_log("Error getting active offer: " . $e->getMessage());
+    return null;
   }
 }
 
 // Récupérer les statistiques
 $stats = getStats();
+
+// Récupérer l'offre active
+$activeOffer = getActiveOffer();
 
 // Année actuelle pour le footer
 $currentYear = date('Y');
@@ -100,12 +186,38 @@ $currentYear = date('Y');
         </div>
         <div class="hero__visual">
           <div class="hero__glow"></div>
-          <img src="images/carhero.png" alt="Blue sports car" loading="eager" decoding="async">
-          <div class="hero__card">
-            <p>Offre week-end luxe</p>
-            <h3>Audi R8 2024</h3>
-            <span>799 € / week-end</span>
-          </div>
+          <?php if ($activeOffer): ?>
+            <img src="<?php echo htmlspecialchars($activeOffer['display_image'] ?: 'images/carhero.png'); ?>" 
+                 alt="<?php echo htmlspecialchars($activeOffer['vehicle_name'] ?: 'Véhicule en promotion'); ?>" 
+                 loading="eager" decoding="async"
+                 onerror="this.onerror=null;this.src='images/carhero.png';">
+            <div class="hero__card">
+              <p><?php echo htmlspecialchars($activeOffer['title'] ?: 'Offre spéciale'); ?></p>
+              <h3><?php echo htmlspecialchars($activeOffer['vehicle_name'] ?: 'Véhicule premium'); ?></h3>
+              <span><?php 
+                $price = number_format($activeOffer['final_price'], 2, ',', ' ');
+                echo $price . ' DH';
+                if ($activeOffer['offer_type'] === 'percentage') {
+                  echo ' / jour (-' . number_format($activeOffer['discount_value'], 0) . '%)';
+                } else {
+                  echo ' / jour';
+                }
+              ?></span>
+              <?php if ($activeOffer['vehicle_id']): ?>
+                <a href="vehicle-details.html?id=<?php echo (int)$activeOffer['vehicle_id']; ?>" 
+                   class="hero__card-link" style="display: block; margin-top: 0.5rem; color: #2F9E44; text-decoration: none; font-weight: 600;">
+                  Voir les détails →
+                </a>
+              <?php endif; ?>
+            </div>
+          <?php else: ?>
+            <img src="images/carhero.png" alt="Blue sports car" loading="eager" decoding="async">
+            <div class="hero__card">
+              <p>Offre week-end luxe</p>
+              <h3>Audi R8 2024</h3>
+              <span>799 € / week-end</span>
+            </div>
+          <?php endif; ?>
         </div>
       </div>
       <div class="container booking-card">
@@ -158,41 +270,15 @@ $currentYear = date('Y');
       </div>
     </section>
 
-    <section class="section how-it-works" id="how-it-works">
+    <section class="section services" id="services">
       <div class="container">
-        <p class="section-tag">Comment ça marche</p>
-        <h2 class="section-title">Louez une voiture en trois étapes simples</h2>
-        <div class="cards-grid">
-          <article class="info-card">
-            <div class="info-card__icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z" />
-              </svg>
-            </div>
-            <h3>Choisissez la localisation</h3>
-            <p>Sélectionnez n'importe quelle ville, aéroport ou hôtel et nous vous montrerons les meilleurs points de
-              prise en charge à proximité.</p>
-          </article>
-          <article class="info-card">
-            <div class="info-card__icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 5h16v2H4zm4 4h8v2H8zm-4 4h16v6H4zm2 2v2h12v-2z" />
-              </svg>
-            </div>
-            <h3>Sélectionnez vos dates</h3>
-            <p>Choisissez des dates précises de prise en charge et de retour pour bénéficier des meilleurs tarifs
-              quotidiens et hebdomadaires.</p>
-          </article>
-          <article class="info-card">
-            <div class="info-card__icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M5 11h14l1 5H4zm11-4h2l1 3H5l1-3h2l1-2h6zM6 17h2v2H6zm10 0h2v2h-2z" />
-              </svg>
-            </div>
-            <h3>Réservez votre voiture</h3>
-            <p>Confirmez instantanément, recevez une clé numérique et nous vous livrons la voiture directement.</p>
-          </article>
+        <p class="section-tag">Offres de location populaires</p>
+        <h2 class="section-title">Voitures sélectionnées pour chaque voyage</h2>
+        <div class="cards-grid cards-grid--4" id="vehicles-grid">
+          <!-- Vehicles will be loaded dynamically from API -->
+        </div>
+        <div class="section__cta">
+          <a href="all-vehicles.php" class="btn btn-text">Voir tous les véhicules →</a>
         </div>
       </div>
     </section>
@@ -239,15 +325,41 @@ $currentYear = date('Y');
       </div>
     </section>
 
-    <section class="section services" id="services">
+    <section class="section how-it-works" id="how-it-works">
       <div class="container">
-        <p class="section-tag">Offres de location populaires</p>
-        <h2 class="section-title">Voitures sélectionnées pour chaque voyage</h2>
-        <div class="cards-grid cards-grid--4" id="vehicles-grid">
-          <!-- Vehicles will be loaded dynamically from API -->
-        </div>
-        <div class="section__cta">
-          <a href="#" class="btn btn-text">Voir tous les véhicules →</a>
+        <p class="section-tag">Comment ça marche</p>
+        <h2 class="section-title">Louez une voiture en trois étapes simples</h2>
+        <div class="cards-grid">
+          <article class="info-card">
+            <div class="info-card__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z" />
+              </svg>
+            </div>
+            <h3>Choisissez la localisation</h3>
+            <p>Sélectionnez n'importe quelle ville, aéroport ou hôtel et nous vous montrerons les meilleurs points de
+              prise en charge à proximité.</p>
+          </article>
+          <article class="info-card">
+            <div class="info-card__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 5h16v2H4zm4 4h8v2H8zm-4 4h16v6H4zm2 2v2h12v-2z" />
+              </svg>
+            </div>
+            <h3>Sélectionnez vos dates</h3>
+            <p>Choisissez des dates précises de prise en charge et de retour pour bénéficier des meilleurs tarifs
+              quotidiens et hebdomadaires.</p>
+          </article>
+          <article class="info-card">
+            <div class="info-card__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 11h14l1 5H4zm11-4h2l1 3H5l1-3h2l1-2h6zM6 17h2v2H6zm10 0h2v2h-2z" />
+              </svg>
+            </div>
+            <h3>Réservez votre voiture</h3>
+            <p>Confirmez instantanément, recevez une clé numérique et nous vous livrons la voiture directement.</p>
+          </article>
         </div>
       </div>
     </section>
@@ -256,46 +368,16 @@ $currentYear = date('Y');
       <div class="container">
         <p class="section-tag">Témoignages</p>
         <h2 class="section-title">Ce que disent nos clients</h2>
-        <div class="cards-grid cards-grid--3">
-          <article class="testimonial-card">
-            <div class="testimonial-card__rating">★★★★★</div>
-            <p>"Réserver avec Cars Location voiture est sans effort. La voiture est arrivée impeccable et à l'heure."
-            </p>
-            <div class="testimonial-card__author">
-              <img src="https://images.unsplash.com/photo-1502685104226-ee32379fefbe?auto=format&fit=crop&w=200&q=80"
-                alt="Portrait client" loading="lazy" decoding="async">
-              <div>
-                <strong>Charlie Johnson</strong>
-                <span>New York, USA</span>
-              </div>
-            </div>
-          </article>
-          <article class="testimonial-card">
-            <div class="testimonial-card__rating">★★★★★</div>
-            <p>"Je me suis senti très en sécurité avec Cars Location voiture. Le support était rapide et le chauffeur
-              professionnel."
-            </p>
-            <div class="testimonial-card__author">
-              <img src="https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=200&q=80"
-                alt="Portrait client" loading="lazy" decoding="async">
-              <div>
-                <strong>Sarah Wilson</strong>
-                <span>Toronto, Canada</span>
-              </div>
-            </div>
-          </article>
-          <article class="testimonial-card">
-            <div class="testimonial-card__rating">★★★★☆</div>
-            <p>"Excellent choix de véhicules et l'application rend la gestion des réservations très simple."</p>
-            <div class="testimonial-card__author">
-              <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=200&q=80"
-                alt="Portrait client" loading="lazy" decoding="async">
-              <div>
-                <strong>Emma Reed</strong>
-                <span>Londres, UK</span>
-              </div>
-            </div>
-          </article>
+        <div class="cards-grid cards-grid--3" id="reviews-grid">
+          <!-- Reviews will be loaded dynamically from API -->
+          <div style="text-align: center; padding: 2rem; color: #6b7280;">
+            <i class="fas fa-spinner fa-spin"></i> Chargement des avis...
+          </div>
+        </div>
+        <div class="section__cta" style="margin-top: 2rem; text-align: center;">
+          <a href="review-submit.html" class="btn btn-primary">
+            <i class="fas fa-star"></i> Laisser un avis
+          </a>
         </div>
       </div>
     </section>
@@ -316,10 +398,6 @@ $currentYear = date('Y');
           </div>
         </a>
         <p>Locations premium avec service conciergerie, disponibles dans plus de 120 villes dans le monde.</p>
-        <div class="footer__contact">
-          <a href="tel:+18005551234">+1 (800) 555-1234</a>
-          <a href="mailto:hello@carslocationvoiture.com">hello@carslocationvoiture.com</a>
-        </div>
       </div>
       <div>
         <h4>Notre Produit</h4>
@@ -360,13 +438,109 @@ $currentYear = date('Y');
     </div>
   </footer>
 
-  <!-- Booking Modal -->
+  <!-- Enhanced Booking Modal with Calendar -->
   <div id="booking-modal" class="modal" style="display: none;">
-    <div class="modal-content">
-      <span class="modal-close">&times;</span>
-      <h2>Complétez votre réservation</h2>
+    <div class="modal-content booking-modal-enhanced">
+      <div class="modal-header">
+        <h2>Modifier la recherche</h2>
+        <button class="modal-close" aria-label="Fermer">&times;</button>
+      </div>
+      
       <form id="booking-form">
         <input type="hidden" id="booking-vehicle-id">
+        
+        <!-- Location Section -->
+        <div class="booking-section">
+          <label for="booking-location" class="booking-label">
+            Lieu de prise en charge
+          </label>
+          <div class="input-with-clear">
+            <input type="text" id="booking-location" class="booking-input" placeholder="Entrez votre adresse" required>
+            <button type="button" class="clear-input" id="clear-location" style="display: none;">&times;</button>
+          </div>
+        </div>
+
+        <!-- Same Location Checkbox -->
+        <div class="booking-section">
+          <label class="checkbox-label">
+            <input type="checkbox" id="same-location" checked>
+            <span>Restitution au même endroit</span>
+          </label>
+        </div>
+
+        <!-- Date and Time Section -->
+        <div class="booking-datetime-section">
+          <!-- Pickup Date/Time -->
+          <div class="datetime-group">
+            <label class="datetime-label">Prise en charge</label>
+            <div class="datetime-inputs">
+              <div class="date-input-wrapper">
+                <input type="text" id="booking-pickup-date" class="date-input" readonly required>
+                <button type="button" class="date-picker-btn" id="pickup-date-btn">
+                  <i class="fas fa-calendar-alt"></i>
+                </button>
+              </div>
+              <div class="time-input-wrapper">
+                <select id="booking-pickup-time" class="time-select" required>
+                  <option value="09:00">09:00</option>
+                  <option value="10:00">10:00</option>
+                  <option value="11:00" selected>11:00</option>
+                  <option value="12:00">12:00</option>
+                  <option value="13:00">13:00</option>
+                  <option value="14:00">14:00</option>
+                  <option value="15:00">15:00</option>
+                  <option value="16:00">16:00</option>
+                  <option value="17:00">17:00</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Return Date/Time -->
+          <div class="datetime-group">
+            <label class="datetime-label">Restitution</label>
+            <div class="datetime-inputs">
+              <div class="date-input-wrapper">
+                <input type="text" id="booking-return-date" class="date-input" readonly required>
+                <button type="button" class="date-picker-btn" id="return-date-btn">
+                  <i class="fas fa-calendar-check"></i>
+                </button>
+              </div>
+              <div class="time-input-wrapper">
+                <select id="booking-return-time" class="time-select" required>
+                  <option value="09:00">09:00</option>
+                  <option value="10:00">10:00</option>
+                  <option value="11:00" selected>11:00</option>
+                  <option value="12:00">12:00</option>
+                  <option value="13:00">13:00</option>
+                  <option value="14:00">14:00</option>
+                  <option value="15:00">15:00</option>
+                  <option value="16:00">16:00</option>
+                  <option value="17:00">17:00</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hidden datetime inputs for form submission -->
+        <input type="hidden" id="booking-pickup" name="pickup_date">
+        <input type="hidden" id="booking-return" name="return_date">
+
+        <!-- Calendar Widget -->
+        <div class="calendar-widget" id="calendar-widget" style="display: none;">
+          <div class="calendar-container">
+            <div class="calendar-month" id="calendar-month-1"></div>
+            <div class="calendar-month" id="calendar-month-2"></div>
+          </div>
+          <div class="calendar-summary" id="calendar-summary"></div>
+        </div>
+
+        <!-- Customer Information Section -->
+        <div class="booking-section-divider">
+          <h3>Informations client</h3>
+        </div>
+
         <div class="form-field">
           <label for="customer-name">Nom complet</label>
           <input type="text" id="customer-name" required>
@@ -382,23 +556,13 @@ $currentYear = date('Y');
         <div class="form-field">
           <label for="customer-password">Mot de passe</label>
           <input type="password" id="customer-password" placeholder="Créez un mot de passe pour votre compte" required>
-          <small style="color: #666; font-size: 0.85rem;">Ce mot de passe vous permettra de vous connecter à votre
-            compte client</small>
+          <small style="color: #666; font-size: 0.85rem;">Ce mot de passe vous permettra de vous connecter à votre compte client</small>
         </div>
-        <div class="form-field">
-          <label>Lieu de prise en charge</label>
-          <input type="text" id="booking-location" required>
-        </div>
-        <div class="form-field">
-          <label>Date de prise en charge</label>
-          <input type="datetime-local" id="booking-pickup" required>
-        </div>
-        <div class="form-field">
-          <label>Date de retour</label>
-          <input type="datetime-local" id="booking-return" required>
-        </div>
-        <div id="booking-total" style="margin: 1rem 0; font-size: 1.2rem; font-weight: 600;"></div>
-        <button type="submit" class="btn btn-primary">Confirmer la réservation</button>
+
+        <!-- Booking Summary -->
+        <div id="booking-total" class="booking-total"></div>
+        
+        <button type="submit" class="btn btn-primary btn-booking-submit">Confirmer la réservation</button>
       </form>
     </div>
   </div>

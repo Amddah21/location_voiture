@@ -124,6 +124,7 @@ class RentcarsAPI
                 CREATE TABLE IF NOT EXISTS bookings (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     vehicle_id INT,
+                    client_id INT NULL COMMENT 'Client ID if logged in',
                     customer_name VARCHAR(255) NOT NULL,
                     customer_email VARCHAR(255) NOT NULL,
                     customer_phone VARCHAR(50),
@@ -133,7 +134,11 @@ class RentcarsAPI
                     total_price DECIMAL(10, 2) NOT NULL,
                     status VARCHAR(50) DEFAULT 'pending',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE SET NULL
+                    INDEX idx_client_id (client_id),
+                    INDEX idx_customer_phone (customer_phone),
+                    INDEX idx_customer_email (customer_email),
+                    FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE SET NULL,
+                    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ");
 
@@ -226,6 +231,70 @@ class RentcarsAPI
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     INDEX idx_email (email),
                     INDEX idx_role (role)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+
+            // Create offers table for promotions and special offers
+            $this->db->exec("
+                CREATE TABLE IF NOT EXISTS offers (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    title VARCHAR(255) NOT NULL,
+                    description TEXT,
+                    offer_type VARCHAR(50) NOT NULL COMMENT 'Type: percentage, fixed_amount, free_days',
+                    discount_value DECIMAL(10, 2) NOT NULL COMMENT 'Percentage or fixed amount',
+                    vehicle_id INT NULL COMMENT 'NULL for all vehicles, or specific vehicle ID',
+                    image_url VARCHAR(500) COMMENT 'Image URL for the offer/car',
+                    start_date DATE NOT NULL,
+                    end_date DATE NOT NULL,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    sales_count INT DEFAULT 0 COMMENT 'Number of times this offer was used',
+                    max_uses INT NULL COMMENT 'Maximum number of times offer can be used, NULL for unlimited',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_vehicle_id (vehicle_id),
+                    INDEX idx_start_date (start_date),
+                    INDEX idx_end_date (end_date),
+                    INDEX idx_is_active (is_active),
+                    FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE SET NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+            
+            // Add image_url column if it doesn't exist (migration)
+            try {
+                $this->db->exec("ALTER TABLE offers ADD COLUMN image_url VARCHAR(500) COMMENT 'Image URL for the offer/car' AFTER vehicle_id");
+            } catch (PDOException $e) {
+                // Column might already exist, ignore error
+                error_log("Offers image_url column migration: " . $e->getMessage());
+            }
+
+            // Create reviews table for client reviews and ratings
+            $this->db->exec("
+                CREATE TABLE IF NOT EXISTS reviews (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    client_id INT NULL COMMENT 'Client ID if logged in',
+                    client_name VARCHAR(255) NOT NULL,
+                    client_email VARCHAR(255),
+                    client_location VARCHAR(255) COMMENT 'City, Country',
+                    vehicle_id INT NULL COMMENT 'Vehicle ID if review is for specific vehicle',
+                    booking_id INT NULL COMMENT 'Booking ID if review is for a specific booking',
+                    rating INT NOT NULL COMMENT 'Rating from 1 to 5 stars',
+                    comment TEXT NOT NULL COMMENT 'Review comment',
+                    service_rating INT NULL COMMENT 'Service rating from 1 to 5',
+                    car_rating INT NULL COMMENT 'Car condition rating from 1 to 5',
+                    is_approved BOOLEAN DEFAULT FALSE COMMENT 'Admin approval before showing publicly',
+                    is_featured BOOLEAN DEFAULT FALSE COMMENT 'Featured reviews shown prominently',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_client_id (client_id),
+                    INDEX idx_vehicle_id (vehicle_id),
+                    INDEX idx_booking_id (booking_id),
+                    INDEX idx_rating (rating),
+                    INDEX idx_is_approved (is_approved),
+                    INDEX idx_is_featured (is_featured),
+                    INDEX idx_created_at (created_at),
+                    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL,
+                    FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE SET NULL,
+                    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ");
 
@@ -377,6 +446,37 @@ class RentcarsAPI
         }
     }
 
+    private function migrateBookingsTable()
+    {
+        try {
+            // Check if client_id column exists
+            $stmt = $this->db->query("SHOW COLUMNS FROM bookings LIKE 'client_id'");
+            if ($stmt->rowCount() == 0) {
+                $this->db->exec("ALTER TABLE bookings ADD COLUMN client_id INT NULL COMMENT 'Client ID if logged in' AFTER vehicle_id");
+                error_log("Added column 'client_id' to bookings table");
+                
+                // Add foreign key if it doesn't exist
+                try {
+                    $this->db->exec("ALTER TABLE bookings ADD CONSTRAINT fk_bookings_client_id FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL");
+                } catch (PDOException $e) {
+                    // Foreign key might already exist or table doesn't exist yet
+                    error_log("Could not add foreign key for bookings.client_id: " . $e->getMessage());
+                }
+                
+                // Add index if it doesn't exist
+                try {
+                    $this->db->exec("CREATE INDEX idx_client_id ON bookings(client_id)");
+                } catch (PDOException $e) {
+                    // Index might already exist
+                    error_log("Could not add index for bookings.client_id: " . $e->getMessage());
+                }
+            }
+        } catch (PDOException $e) {
+            // Table might not exist yet, ignore error
+            error_log("Bookings table migration error (may be expected): " . $e->getMessage());
+        }
+    }
+
     private function insertSampleVehicles()
     {
         $vehicles = [
@@ -522,6 +622,14 @@ class RentcarsAPI
                 http_response_code(404);
                 echo json_encode(['error' => 'Brand ID required']);
             }
+        } elseif ($path === 'offers') {
+            $this->getOffers();
+        } elseif (preg_match('/^offers\/(\d+)$/', $path, $matches)) {
+            $this->getOffer($matches[1]);
+        } elseif ($path === 'reviews') {
+            $this->getReviews();
+        } elseif (preg_match('/^reviews\/(\d+)$/', $path, $matches)) {
+            $this->getReview($matches[1]);
         } else {
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $path]);
@@ -553,6 +661,10 @@ class RentcarsAPI
             $this->createAdmin($data);
         } elseif ($path === 'car_brands' || $path === 'brands') {
             $this->createCarBrand($data);
+        } elseif ($path === 'offers') {
+            $this->createOffer($data);
+        } elseif ($path === 'reviews') {
+            $this->createReview($data);
         } else {
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $path]);
@@ -581,6 +693,10 @@ class RentcarsAPI
                 http_response_code(404);
                 echo json_encode(['error' => 'Brand ID required']);
             }
+        } elseif (preg_match('/^offers\/(\d+)$/', $path, $matches)) {
+            $this->updateOffer($matches[1], $data);
+        } elseif (preg_match('/^reviews\/(\d+)$/', $path, $matches)) {
+            $this->updateReview($matches[1], $data);
         } else {
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found']);
@@ -607,6 +723,10 @@ class RentcarsAPI
                 http_response_code(404);
                 echo json_encode(['error' => 'Brand ID required']);
             }
+        } elseif (preg_match('/^offers\/(\d+)$/', $path, $matches)) {
+            $this->deleteOffer($matches[1]);
+        } elseif (preg_match('/^reviews\/(\d+)$/', $path, $matches)) {
+            $this->deleteReview($matches[1]);
         } else {
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found']);
@@ -987,6 +1107,12 @@ class RentcarsAPI
                     return;
                 }
             }
+            
+            // Check if client is logged in (from session)
+            $logged_in_client_id = null;
+            if (isset($_SESSION['client_id']) && $_SESSION['client_id']) {
+                $logged_in_client_id = $_SESSION['client_id'];
+            }
 
             // Get vehicle price
             $stmt = $this->db->prepare("SELECT price_per_day FROM vehicles WHERE id = :id");
@@ -1027,17 +1153,44 @@ class RentcarsAPI
                 return;
             }
 
-            // Create or update client
-            $client_id = $this->createOrUpdateClient($data);
+            // If client is logged in, use their ID directly
+            // Otherwise, create or update client from booking data
+            $client_id = $logged_in_client_id;
+            
+            if (!$client_id) {
+                // Client not logged in, create/update client from booking data
+                $client_id = $this->createOrUpdateClient($data, $total_price);
+            } else {
+                // Client is logged in - update their booking stats
+                $stmt = $this->db->prepare("SELECT phone, email FROM clients WHERE id = :id");
+                $stmt->execute([':id' => $client_id]);
+                $clientInfo = $stmt->fetch();
+                
+                // Update client booking stats
+                if ($clientInfo) {
+                    $updateStmt = $this->db->prepare("
+                        UPDATE clients 
+                        SET total_bookings = total_bookings + 1,
+                            total_spent = total_spent + :booking_total,
+                            last_booking_date = NOW()
+                        WHERE id = :id
+                    ");
+                    $updateStmt->execute([
+                        ':id' => $client_id,
+                        ':booking_total' => $total_price
+                    ]);
+                }
+            }
 
             // Create booking
             $stmt = $this->db->prepare("
-                INSERT INTO bookings (vehicle_id, customer_name, customer_email, customer_phone, pickup_location, pickup_date, return_date, total_price, status)
-                VALUES (:vehicle_id, :customer_name, :customer_email, :customer_phone, :pickup_location, :pickup_date, :return_date, :total_price, 'pending')
+                INSERT INTO bookings (vehicle_id, client_id, customer_name, customer_email, customer_phone, pickup_location, pickup_date, return_date, total_price, status)
+                VALUES (:vehicle_id, :client_id, :customer_name, :customer_email, :customer_phone, :pickup_location, :pickup_date, :return_date, :total_price, 'pending')
             ");
 
             $stmt->execute([
                 ':vehicle_id' => $data['vehicle_id'],
+                ':client_id' => $client_id,
                 ':customer_name' => $data['customer_name'],
                 ':customer_email' => $data['customer_email'],
                 ':customer_phone' => $data['customer_phone'] ?? null,
@@ -2063,6 +2216,509 @@ class RentcarsAPI
             } catch (PDOException $e) {
                 error_log("Failed to insert brand {$brand['name']}: " . $e->getMessage());
             }
+        }
+    }
+
+    // Offer management methods
+    private function getOffers() {
+        try {
+            $stmt = $this->db->query("
+                SELECT o.*, v.name as vehicle_name, v.image_url as vehicle_image 
+                FROM offers o 
+                LEFT JOIN vehicles v ON o.vehicle_id = v.id 
+                ORDER BY o.created_at DESC
+            ");
+            $offers = $stmt->fetchAll();
+            
+            foreach ($offers as &$offer) {
+                $offer['is_active'] = (bool)$offer['is_active'];
+                $offer['discount_value'] = (float)$offer['discount_value'];
+                $offer['sales_count'] = (int)$offer['sales_count'];
+                $offer['max_uses'] = $offer['max_uses'] ? (int)$offer['max_uses'] : null;
+                // Use offer image if available, otherwise vehicle image
+                if (empty($offer['image_url']) && !empty($offer['vehicle_image'])) {
+                    $offer['image_url'] = $offer['vehicle_image'];
+                }
+            }
+            
+            echo json_encode(['success' => true, 'data' => $offers]);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to fetch offers: ' . $e->getMessage()]);
+        }
+    }
+
+    private function getOffer($id) {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT o.*, v.name as vehicle_name, v.image_url as vehicle_image 
+                FROM offers o 
+                LEFT JOIN vehicles v ON o.vehicle_id = v.id 
+                WHERE o.id = :id
+            ");
+            $stmt->execute([':id' => $id]);
+            $offer = $stmt->fetch();
+            
+            // Use offer image if available, otherwise vehicle image
+            if ($offer && empty($offer['image_url']) && !empty($offer['vehicle_image'])) {
+                $offer['image_url'] = $offer['vehicle_image'];
+            }
+
+            if (!$offer) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Offer not found']);
+                return;
+            }
+
+            $offer['is_active'] = (bool)$offer['is_active'];
+            $offer['discount_value'] = (float)$offer['discount_value'];
+            $offer['sales_count'] = (int)$offer['sales_count'];
+            $offer['max_uses'] = $offer['max_uses'] ? (int)$offer['max_uses'] : null;
+            
+            echo json_encode(['success' => true, 'data' => $offer]);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to fetch offer: ' . $e->getMessage()]);
+        }
+    }
+
+    private function createOffer($data) {
+        try {
+            // Check if session exists and user is admin
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            
+            if (!isset($_SESSION['admin_id'])) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Unauthorized']);
+                return;
+            }
+
+            $required = ['title', 'offer_type', 'discount_value', 'start_date', 'end_date'];
+            foreach ($required as $field) {
+                if (empty($data[$field])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => "Missing required field: $field"]);
+                    return;
+                }
+            }
+
+            // Validate offer type
+            $validTypes = ['percentage', 'fixed_amount', 'free_days'];
+            if (!in_array($data['offer_type'], $validTypes)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid offer type. Must be: percentage, fixed_amount, or free_days']);
+                return;
+            }
+
+            // Validate dates
+            $startDate = new DateTime($data['start_date']);
+            $endDate = new DateTime($data['end_date']);
+            if ($endDate < $startDate) {
+                http_response_code(400);
+                echo json_encode(['error' => 'End date must be after start date']);
+                return;
+            }
+
+            $stmt = $this->db->prepare("
+                INSERT INTO offers (title, description, offer_type, discount_value, vehicle_id, image_url, start_date, end_date, is_active, max_uses)
+                VALUES (:title, :description, :offer_type, :discount_value, :vehicle_id, :image_url, :start_date, :end_date, :is_active, :max_uses)
+            ");
+
+            $stmt->execute([
+                ':title' => $data['title'],
+                ':description' => $data['description'] ?? null,
+                ':offer_type' => $data['offer_type'],
+                ':discount_value' => $data['discount_value'],
+                ':vehicle_id' => !empty($data['vehicle_id']) ? (int)$data['vehicle_id'] : null,
+                ':image_url' => !empty($data['image_url']) ? $data['image_url'] : null,
+                ':start_date' => $data['start_date'],
+                ':end_date' => $data['end_date'],
+                ':is_active' => isset($data['is_active']) ? (int)$data['is_active'] : 1,
+                ':max_uses' => !empty($data['max_uses']) ? (int)$data['max_uses'] : null
+            ]);
+
+            $id = $this->db->lastInsertId();
+            
+            // Log admin action
+            $this->logAdminAction('create', "Offer created: {$data['title']} (ID: {$id})");
+
+            echo json_encode(['success' => true, 'message' => 'Offer created successfully', 'id' => $id]);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to create offer: ' . $e->getMessage()]);
+        }
+    }
+
+    private function updateOffer($id, $data) {
+        try {
+            // Check if session exists and user is admin
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            
+            if (!isset($_SESSION['admin_id'])) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Unauthorized']);
+                return;
+            }
+
+            $fields = [];
+            $params = [':id' => $id];
+
+            $allowed = ['title', 'description', 'offer_type', 'discount_value', 'vehicle_id', 'image_url', 'start_date', 'end_date', 'is_active', 'max_uses'];
+            
+            foreach ($allowed as $field) {
+                if (isset($data[$field])) {
+                    if ($field === 'offer_type') {
+                        $validTypes = ['percentage', 'fixed_amount', 'free_days'];
+                        if (!in_array($data[$field], $validTypes)) {
+                            http_response_code(400);
+                            echo json_encode(['error' => 'Invalid offer type']);
+                            return;
+                        }
+                    }
+                    
+                    if ($field === 'vehicle_id') {
+                        $fields[] = "$field = :$field";
+                        // Handle empty string, null, 0, or false as null (all vehicles)
+                        $vehicleId = $data[$field];
+                        if (empty($vehicleId) || $vehicleId === '0' || $vehicleId === 0 || $vehicleId === false) {
+                            $params[":$field"] = null;
+                        } else {
+                            $params[":$field"] = (int)$vehicleId;
+                        }
+                    } elseif ($field === 'is_active') {
+                        $fields[] = "$field = :$field";
+                        $params[":$field"] = (int)$data[$field];
+                    } elseif ($field === 'max_uses') {
+                        $fields[] = "$field = :$field";
+                        $params[":$field"] = !empty($data[$field]) ? (int)$data[$field] : null;
+                    } elseif ($field === 'discount_value') {
+                        $fields[] = "$field = :$field";
+                        $params[":$field"] = (float)$data[$field];
+                    } else {
+                        $fields[] = "$field = :$field";
+                        $params[":$field"] = $data[$field];
+                    }
+                }
+            }
+
+            if (empty($fields)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'No fields to update']);
+                return;
+            }
+
+            // Validate dates if both are being updated
+            if (isset($data['start_date']) && isset($data['end_date'])) {
+                $startDate = new DateTime($data['start_date']);
+                $endDate = new DateTime($data['end_date']);
+                if ($endDate < $startDate) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'End date must be after start date']);
+                    return;
+                }
+            }
+
+            $sql = "UPDATE offers SET " . implode(', ', $fields) . " WHERE id = :id";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+
+            if ($stmt->rowCount() === 0) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Offer not found']);
+                return;
+            }
+
+            // Log admin action
+            $this->logAdminAction('update', "Offer #{$id} updated");
+
+            echo json_encode(['success' => true, 'message' => 'Offer updated successfully']);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to update offer: ' . $e->getMessage()]);
+        }
+    }
+
+    private function deleteOffer($id) {
+        try {
+            // Check if session exists and user is admin
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            
+            if (!isset($_SESSION['admin_id'])) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Unauthorized']);
+                return;
+            }
+
+            $stmt = $this->db->prepare("DELETE FROM offers WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+
+            if ($stmt->rowCount() === 0) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Offer not found']);
+                return;
+            }
+
+            // Log admin action
+            $this->logAdminAction('delete', "Offer #{$id} deleted");
+
+            echo json_encode(['success' => true, 'message' => 'Offer deleted successfully']);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to delete offer: ' . $e->getMessage()]);
+        }
+    }
+
+    // Review management methods
+    private function getReviews() {
+        try {
+            $vehicle_id = $_GET['vehicle_id'] ?? null;
+            $approved_only = $_GET['approved'] ?? 'true';
+            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
+            $limit = min(max($limit, 1), 100);
+            
+            $sql = "
+                SELECT r.*, v.name as vehicle_name 
+                FROM reviews r 
+                LEFT JOIN vehicles v ON r.vehicle_id = v.id 
+                WHERE 1=1
+            ";
+            $params = [];
+            
+            if ($approved_only === 'true' || $approved_only === true) {
+                $sql .= " AND r.is_approved = 1";
+            }
+            
+            if ($vehicle_id) {
+                $sql .= " AND r.vehicle_id = :vehicle_id";
+                $params[':vehicle_id'] = (int)$vehicle_id;
+            }
+            
+            $sql .= " ORDER BY r.is_featured DESC, r.created_at DESC LIMIT :limit";
+            $params[':limit'] = $limit;
+            
+            $stmt = $this->db->prepare($sql);
+            foreach ($params as $key => $value) {
+                if ($key === ':limit') {
+                    $stmt->bindValue($key, $value, PDO::PARAM_INT);
+                } else {
+                    $stmt->bindValue($key, $value);
+                }
+            }
+            $stmt->execute();
+            $reviews = $stmt->fetchAll();
+            
+            foreach ($reviews as &$review) {
+                $review['rating'] = (int)$review['rating'];
+                $review['service_rating'] = $review['service_rating'] ? (int)$review['service_rating'] : null;
+                $review['car_rating'] = $review['car_rating'] ? (int)$review['car_rating'] : null;
+                $review['is_approved'] = (bool)$review['is_approved'];
+                $review['is_featured'] = (bool)$review['is_featured'];
+            }
+            
+            echo json_encode(['success' => true, 'data' => $reviews]);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to fetch reviews: ' . $e->getMessage()]);
+        }
+    }
+
+    private function getReview($id) {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT r.*, v.name as vehicle_name 
+                FROM reviews r 
+                LEFT JOIN vehicles v ON r.vehicle_id = v.id 
+                WHERE r.id = :id
+            ");
+            $stmt->execute([':id' => $id]);
+            $review = $stmt->fetch();
+
+            if (!$review) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Review not found']);
+                return;
+            }
+
+            $review['rating'] = (int)$review['rating'];
+            $review['service_rating'] = $review['service_rating'] ? (int)$review['service_rating'] : null;
+            $review['car_rating'] = $review['car_rating'] ? (int)$review['car_rating'] : null;
+            $review['is_approved'] = (bool)$review['is_approved'];
+            $review['is_featured'] = (bool)$review['is_featured'];
+            
+            echo json_encode(['success' => true, 'data' => $review]);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to fetch review: ' . $e->getMessage()]);
+        }
+    }
+
+    private function createReview($data) {
+        try {
+            $required = ['client_name', 'rating', 'comment'];
+            foreach ($required as $field) {
+                if (empty($data[$field])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => "Missing required field: $field"]);
+                    return;
+                }
+            }
+
+            // Validate rating
+            $rating = (int)$data['rating'];
+            if ($rating < 1 || $rating > 5) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Rating must be between 1 and 5']);
+                return;
+            }
+
+            // Validate service and car ratings if provided
+            if (isset($data['service_rating'])) {
+                $serviceRating = (int)$data['service_rating'];
+                if ($serviceRating < 1 || $serviceRating > 5) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Service rating must be between 1 and 5']);
+                    return;
+                }
+            }
+
+            if (isset($data['car_rating'])) {
+                $carRating = (int)$data['car_rating'];
+                if ($carRating < 1 || $carRating > 5) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Car rating must be between 1 and 5']);
+                    return;
+                }
+            }
+
+            $stmt = $this->db->prepare("
+                INSERT INTO reviews (client_name, client_email, client_location, vehicle_id, rating, comment, service_rating, car_rating, is_approved)
+                VALUES (:client_name, :client_email, :client_location, :vehicle_id, :rating, :comment, :service_rating, :car_rating, :is_approved)
+            ");
+
+            $stmt->execute([
+                ':client_name' => $data['client_name'],
+                ':client_email' => $data['client_email'] ?? null,
+                ':client_location' => $data['client_location'] ?? null,
+                ':vehicle_id' => !empty($data['vehicle_id']) ? (int)$data['vehicle_id'] : null,
+                ':rating' => $rating,
+                ':comment' => $data['comment'],
+                ':service_rating' => !empty($data['service_rating']) ? (int)$data['service_rating'] : null,
+                ':car_rating' => !empty($data['car_rating']) ? (int)$data['car_rating'] : null,
+                ':is_approved' => 0 // Reviews need admin approval
+            ]);
+
+            $id = $this->db->lastInsertId();
+            
+            echo json_encode(['success' => true, 'message' => 'Review submitted successfully. It will be published after approval.', 'id' => $id]);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to create review: ' . $e->getMessage()]);
+        }
+    }
+
+    private function updateReview($id, $data) {
+        try {
+            // Check if session exists and user is admin
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            
+            if (!isset($_SESSION['admin_id'])) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Unauthorized']);
+                return;
+            }
+
+            $fields = [];
+            $params = [':id' => $id];
+
+            $allowed = ['client_name', 'client_email', 'client_location', 'vehicle_id', 'rating', 'comment', 'service_rating', 'car_rating', 'is_approved', 'is_featured'];
+            
+            foreach ($allowed as $field) {
+                if (isset($data[$field])) {
+                    if ($field === 'rating' || $field === 'service_rating' || $field === 'car_rating') {
+                        $rating = (int)$data[$field];
+                        if ($rating < 1 || $rating > 5) {
+                            http_response_code(400);
+                            echo json_encode(['error' => "$field must be between 1 and 5"]);
+                            return;
+                        }
+                        $fields[] = "$field = :$field";
+                        $params[":$field"] = $rating;
+                    } elseif ($field === 'vehicle_id') {
+                        $fields[] = "$field = :$field";
+                        $params[":$field"] = !empty($data[$field]) ? (int)$data[$field] : null;
+                    } elseif ($field === 'is_approved' || $field === 'is_featured') {
+                        $fields[] = "$field = :$field";
+                        $params[":$field"] = (int)$data[$field];
+                    } else {
+                        $fields[] = "$field = :$field";
+                        $params[":$field"] = $data[$field];
+                    }
+                }
+            }
+
+            if (empty($fields)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'No fields to update']);
+                return;
+            }
+
+            $sql = "UPDATE reviews SET " . implode(', ', $fields) . " WHERE id = :id";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+
+            if ($stmt->rowCount() === 0) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Review not found']);
+                return;
+            }
+
+            // Log admin action
+            $this->logAdminAction('update', "Review #{$id} updated");
+
+            echo json_encode(['success' => true, 'message' => 'Review updated successfully']);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to update review: ' . $e->getMessage()]);
+        }
+    }
+
+    private function deleteReview($id) {
+        try {
+            // Check if session exists and user is admin
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            
+            if (!isset($_SESSION['admin_id'])) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Unauthorized']);
+                return;
+            }
+
+            $stmt = $this->db->prepare("DELETE FROM reviews WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+
+            if ($stmt->rowCount() === 0) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Review not found']);
+                return;
+            }
+
+            // Log admin action
+            $this->logAdminAction('delete', "Review #{$id} deleted");
+
+            echo json_encode(['success' => true, 'message' => 'Review deleted successfully']);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to delete review: ' . $e->getMessage()]);
         }
     }
 

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laisser un avis - Cars Location voiture</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .review-form-container {
+            max-width: 800px;
+            margin: 4rem auto;
+            padding: 2rem;
+        }
+        .review-form-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .star-rating {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+            direction: rtl;
+        }
+        .star-rating input {
+            display: none;
+        }
+        .star-rating label {
+            font-size: 2rem;
+            color: #ddd;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .star-rating label:hover,
+        .star-rating label:hover ~ label,
+        .star-rating input:checked ~ label {
+            color: #fbbf24;
+        }
+        .star-rating input:checked ~ label {
+            color: #f59e0b;
+        }
+        .rating-group {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: #f9fafb;
+            border-radius: 12px;
+        }
+        .rating-group h3 {
+            margin-bottom: 1rem;
+            color: #1f2937;
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #374151;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.875rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #10b981;
+        }
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        .btn-submit-review {
+            width: 100%;
+            padding: 1rem;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-submit-review:hover {
+            background: #059669;
+        }
+        .btn-submit-review:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header will be loaded here -->
+    <div id="header-placeholder"></div>
+
+    <main>
+        <section class="section">
+            <div class="container review-form-container">
+                <div class="review-form-card">
+                    <h1 style="text-align: center; margin-bottom: 0.5rem;">Laisser un avis</h1>
+                    <p style="text-align: center; color: #6b7280; margin-bottom: 2rem;">
+                        Partagez votre expérience avec Cars Location voiture
+                    </p>
+
+                    <div id="success-message" class="success-message" style="display: none;">
+                        <i class="fas fa-check-circle"></i> Merci pour votre avis ! Il sera publié après validation.
+                    </div>
+                    <div id="error-message" class="error-message" style="display: none;">
+                        <i class="fas fa-exclamation-circle"></i> <span id="error-text"></span>
+                    </div>
+
+                    <form id="review-form">
+                        <div class="form-group">
+                            <label for="client-name">Votre nom *</label>
+                            <input type="text" id="client-name" name="client_name" required placeholder="Ex: Jean Dupont">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="client-email">Votre email</label>
+                            <input type="email" id="client-email" name="client_email" placeholder="exemple@email.com">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="client-location">Votre localisation</label>
+                            <input type="text" id="client-location" name="client_location" placeholder="Ex: Casablanca, Maroc">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="vehicle-select">Véhicule loué (optionnel)</label>
+                            <select id="vehicle-select" name="vehicle_id">
+                                <option value="">Sélectionner un véhicule...</option>
+                            </select>
+                        </div>
+
+                        <div class="rating-group">
+                            <h3>Note globale *</h3>
+                            <div class="star-rating" id="overall-rating">
+                                <input type="radio" id="star5" name="rating" value="5" required>
+                                <label for="star5"><i class="fas fa-star"></i></label>
+                                <input type="radio" id="star4" name="rating" value="4">
+                                <label for="star4"><i class="fas fa-star"></i></label>
+                                <input type="radio" id="star3" name="rating" value="3">
+                                <label for="star3"><i class="fas fa-star"></i></label>
+                                <input type="radio" id="star2" name="rating" value="2">
+                                <label for="star2"><i class="fas fa-star"></i></label>
+                                <input type="radio" id="star1" name="rating" value="1">
+                                <label for="star1"><i class="fas fa-star"></i></label>
+                            </div>
+                        </div>
+
+                        <div class="rating-group">
+                            <h3>Note du service</h3>
+                            <p style="color: #6b7280; font-size: 0.9rem; margin-bottom: 1rem;">Comment évaluez-vous notre service client ?</p>
+                            <div class="star-rating" id="service-rating">
+                                <input type="radio" id="service5" name="service_rating" value="5">
+                                <label for="service5"><i class="fas fa-star"></i></label>
+                                <input type="radio" id="service4" name="service_rating" value="4">
+                                <label for="service4"><i class="fas fa-star"></i></label>
+                                <input type="radio" id="service3" name="service_rating" value="3">
+                                <label for="service3"><i class="fas fa-star"></i></label>
+                                <input type="radio" id="service2" name="service_rating" value="2">
+                                <label for="service2"><i class="fas fa-star"></i></label>
+                                <input type="radio" id="service1" name="service_rating" value="1">
+                                <label for="service1"><i class="fas fa-star"></i></label>
+                            </div>
+                        </div>
+
+                        <div class="rating-group">
+                            <h3>Note du véhicule</h3>
+                            <p style="color: #6b7280; font-size: 0.9rem; margin-bottom: 1rem;">Comment évaluez-vous l'état et la qualité du véhicule ?</p>
+                            <div class="star-rating" id="car-rating">
+                                <input type="radio" id="car5" name="car_rating" value="5">
+                                <label for="car5"><i class="fas fa-star"></i></label>
+                                <input type="radio" id="car4" name="car_rating" value="4">
+                                <label for="car4"><i class="fas fa-star"></i></label>
+                                <input type="radio" id="car3" name="car_rating" value="3">
+                                <label for="car3"><i class="fas fa-star"></i></label>
+                                <input type="radio" id="car2" name="car_rating" value="2">
+                                <label for="car2"><i class="fas fa-star"></i></label>
+                                <input type="radio" id="car1" name="car_rating" value="1">
+                                <label for="car1"><i class="fas fa-star"></i></label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="comment">Votre commentaire *</label>
+                            <textarea id="comment" name="comment" required placeholder="Décrivez votre expérience avec Cars Location voiture..."></textarea>
+                            <small style="color: #6b7280;">Votre avis nous aide à améliorer nos services</small>
+                        </div>
+
+                        <button type="submit" class="btn-submit-review" id="submit-btn">
+                            <i class="fas fa-paper-plane"></i> Envoyer l'avis
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer will be loaded here -->
+    <div id="footer-placeholder"></div>
+
+    <script src="script/load-components.js" defer></script>
+    <script src="script/review-submit.js" defer></script>
+</body>
+</html>
+

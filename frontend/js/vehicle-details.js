@@ -37,8 +37,14 @@ async function loadVehicleDetails() {
   }
 }
 
+// Store current vehicle data globally for currency updates
+let currentVehicleData = null;
+
 // Display vehicle details
 function displayVehicleDetails(vehicle) {
+  // Store vehicle data for currency updates
+  currentVehicleData = vehicle;
+  
   // Hide loading, show content
   document.getElementById('loading-state').style.display = 'none';
   document.getElementById('vehicle-details').style.display = 'block';
@@ -76,14 +82,8 @@ function displayVehicleDetails(vehicle) {
   document.getElementById('rating-value').textContent = rating.toFixed(1);
   document.getElementById('review-count').textContent = `(${formatNumber(vehicle.review_count || 0)} avis)`;
 
-  // Price
-  const price = parseFloat(vehicle.price_per_day || 0);
-  const priceFormatted = formatPrice(price);
-  document.getElementById('price-amount').textContent = priceFormatted;
-  const summaryPriceDay = document.getElementById('summary-price-day');
-  if (summaryPriceDay) {
-    summaryPriceDay.textContent = priceFormatted;
-  }
+  // Update prices
+  updateVehiclePrices(vehicle);
 
   // Availability
   const availabilityBadge = document.getElementById('availability-badge');
@@ -199,8 +199,12 @@ async function loadSimilarVehicles(type, excludeId) {
   }
 }
 
+// Store similar vehicles for currency updates
+let similarVehiclesData = [];
+
 // Display similar vehicles
 function displaySimilarVehicles(vehicles) {
+  similarVehiclesData = vehicles;
   const grid = document.getElementById('similar-vehicles-grid');
   
   if (vehicles.length === 0) {
@@ -208,10 +212,19 @@ function displaySimilarVehicles(vehicles) {
     return;
   }
 
-  grid.innerHTML = vehicles.map(vehicle => {
+  updateSimilarVehiclesDisplay();
+}
+
+// Update similar vehicles display with current currency
+function updateSimilarVehiclesDisplay() {
+  const grid = document.getElementById('similar-vehicles-grid');
+  
+  if (similarVehiclesData.length === 0) return;
+
+  grid.innerHTML = similarVehiclesData.map(vehicle => {
     const imageUrl = vehicle.image_url || 'https://via.placeholder.com/400x200?text=No+Image';
     const rating = parseFloat(vehicle.rating || 4.5).toFixed(1);
-    const price = parseFloat(vehicle.price_per_day || 0).toFixed(2);
+    const price = parseFloat(vehicle.price_per_day || 0);
     
     return `
       <article class="vehicle-card">
@@ -237,6 +250,27 @@ function displaySimilarVehicles(vehicles) {
       </article>
     `;
   }).join('');
+}
+
+// Update vehicle prices with current currency
+function updateVehiclePrices(vehicle) {
+  if (!vehicle) vehicle = currentVehicleData;
+  if (!vehicle) return;
+  
+  const price = parseFloat(vehicle.price_per_day || 0);
+  const priceFormatted = formatPrice(price);
+  
+  const priceAmount = document.getElementById('price-amount');
+  const summaryPriceDay = document.getElementById('summary-price-day');
+  
+  if (priceAmount) {
+    priceAmount.textContent = priceFormatted;
+  }
+  if (summaryPriceDay) {
+    summaryPriceDay.textContent = priceFormatted;
+    // Recalculate booking total if dates are set
+    calculateBookingTotal();
+  }
 }
 
 // Show error state
@@ -375,6 +409,23 @@ function setupBookingForm() {
 document.addEventListener('DOMContentLoaded', () => {
   loadVehicleDetails();
   setupBookingForm();
+  
+  // Initialize currency selector
+  if (typeof initCurrencySelector === 'function') {
+    initCurrencySelector();
+  }
+  
+  // Listen for currency changes
+  window.addEventListener('currencyChanged', () => {
+    // Update main vehicle price
+    if (currentVehicleData) {
+      updateVehiclePrices(currentVehicleData);
+    }
+    // Update similar vehicles prices
+    if (similarVehiclesData.length > 0) {
+      updateSimilarVehiclesDisplay();
+    }
+  });
   
   // Close modal on ESC key
   document.addEventListener('keydown', (e) => {

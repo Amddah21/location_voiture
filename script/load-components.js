@@ -98,6 +98,9 @@ async function loadHeader() {
       if (typeof initCurrencySelector === 'function') {
         initCurrencySelector();
       }
+      
+      // Check login status and update Espace Client button
+      updateEspaceClientButton();
     }
   } catch (error) {
     console.error('Error loading header:', error);
@@ -252,6 +255,68 @@ function getDefaultIcon(type) {
     'address': 'fas fa-map-marker-alt'
   };
   return icons[type] || 'fas fa-link';
+}
+
+// Format client name (capitalize first letter of each word)
+function formatClientName(name) {
+  if (!name) return 'Client';
+  // Capitalize first letter of each word
+  return name.split(' ').map(word => {
+    if (word.length === 0) return word;
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  }).join(' ');
+}
+
+// Get first name from full name
+function getFirstName(fullName) {
+  if (!fullName) return 'Client';
+  const formatted = formatClientName(fullName);
+  // Return first word (first name)
+  return formatted.split(' ')[0];
+}
+
+// Check if user is logged in and update Espace Client button
+async function updateEspaceClientButton() {
+  try {
+    // Find the Espace Client button - look for link with "Espace Client" text or href containing "client-login"
+    const espaceClientLink = document.querySelector('a.nav-link-btn, a[href*="client-login"], a[href*="client-dashboard"]');
+    
+    if (!espaceClientLink) {
+      return; // Button not found
+    }
+    
+    const formData = new FormData();
+    formData.append('action', 'get_client_info');
+    
+    const response = await fetch('client_auth.php', {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin'
+    });
+    
+    const data = await response.json();
+    
+    if (data.success && data.data && data.data.name) {
+      // User is logged in - show client's first name
+      const clientFirstName = getFirstName(data.data.name);
+      espaceClientLink.href = 'client-dashboard.html';
+      espaceClientLink.innerHTML = `<i class="fas fa-user-circle"></i> ${clientFirstName}`;
+      espaceClientLink.title = `Accéder à l'espace de ${formatClientName(data.data.name)}`;
+    } else {
+      // User is not logged in - go to login
+      espaceClientLink.href = 'client-login.html';
+      espaceClientLink.innerHTML = '<i class="fas fa-user"></i> Espace Client';
+      espaceClientLink.title = 'Se connecter';
+    }
+  } catch (error) {
+    // If error, default to login page
+    const espaceClientLink = document.querySelector('a.nav-link-btn, a[href*="client-login"], a[href*="client-dashboard"]');
+    if (espaceClientLink) {
+      espaceClientLink.href = 'client-login.html';
+      espaceClientLink.innerHTML = '<i class="fas fa-user"></i> Espace Client';
+      espaceClientLink.title = 'Se connecter';
+    }
+  }
 }
 
 // Load all components when DOM is ready

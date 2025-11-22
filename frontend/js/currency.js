@@ -19,9 +19,9 @@ const CURRENCIES = {
     }
 };
 
-// Get currency from localStorage or default to EUR
+// Get currency from localStorage or default to MAD
 function getCurrency() {
-    return localStorage.getItem('currency') || 'EUR';
+    return localStorage.getItem('currency') || 'MAD';
 }
 
 // Set currency preference
@@ -97,19 +97,45 @@ function parsePrice(priceString) {
 // Initialize currency selector if element exists
 function initCurrencySelector() {
     const selector = document.getElementById('currency-selector');
-    if (!selector) return;
+    const selectorDetails = document.getElementById('currency-selector-details');
     
-    // Set current currency
-    selector.value = getCurrency();
+    const currentCurrency = getCurrency();
     
-    // Add change listener
-    selector.addEventListener('change', (e) => {
-        const newCurrency = e.target.value;
-        if (setCurrency(newCurrency)) {
-            // Reload page or update prices dynamically
-            location.reload();
-        }
-    });
+    // Initialize main header selector
+    if (selector) {
+        selector.value = currentCurrency;
+        selector.addEventListener('change', (e) => {
+            const newCurrency = e.target.value;
+            if (setCurrency(newCurrency)) {
+                // Update all selectors
+                if (selectorDetails) selectorDetails.value = newCurrency;
+                // Update prices without reload
+                updateAllPricesOnPage();
+            }
+        });
+    }
+    
+    // Initialize details page selector
+    if (selectorDetails) {
+        selectorDetails.value = currentCurrency;
+        selectorDetails.addEventListener('change', (e) => {
+            const newCurrency = e.target.value;
+            if (setCurrency(newCurrency)) {
+                // Update header selector if exists
+                if (selector) selector.value = newCurrency;
+                // Update prices without reload
+                updateAllPricesOnPage();
+            }
+        });
+    }
+}
+
+// Update all prices on the current page without reload
+function updateAllPricesOnPage() {
+    // Dispatch event for pages to listen and update their prices
+    window.dispatchEvent(new CustomEvent('currencyChanged', { 
+        detail: { currency: getCurrency() } 
+    }));
 }
 
 // Update all prices on page when currency changes

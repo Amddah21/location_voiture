@@ -18,8 +18,22 @@
         .dashboard-header {
             background: linear-gradient(135deg, #2F9E44 0%, #41B883 100%);
             color: white;
-            padding: 2rem 0;
+            padding: 2.5rem 0;
             margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(47, 158, 68, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dashboard-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="2" fill="rgba(255,255,255,0.1)"/></svg>');
+            opacity: 0.3;
         }
 
         .dashboard-header-content {
@@ -31,16 +45,46 @@
             align-items: center;
             flex-wrap: wrap;
             gap: 1rem;
+            position: relative;
+            z-index: 1;
         }
 
-        .user-info h1 {
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            flex-shrink: 0;
+        }
+
+        .user-details h1 {
             font-size: 1.75rem;
-            margin: 0 0 0.5rem 0;
+            margin: 0 0 0.25rem 0;
+            font-weight: 700;
         }
 
-        .user-info p {
+        .user-details p {
             margin: 0;
             opacity: 0.9;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .user-details p i {
+            font-size: 0.875rem;
         }
 
         .header-actions {
@@ -54,18 +98,27 @@
             color: white;
             border: 2px solid white;
             padding: 0.75rem 1.5rem;
-            border-radius: 8px;
+            border-radius: 10px;
             text-decoration: none;
             font-weight: 600;
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            cursor: pointer;
+            font-size: 0.95rem;
+            backdrop-filter: blur(10px);
         }
 
         .btn-logout:hover {
             background: white;
             color: #2F9E44;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-logout:active {
+            transform: translateY(0);
         }
 
         .dashboard-container {
@@ -84,11 +137,19 @@
         .stat-card {
             background: white;
             padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
             display: flex;
             align-items: center;
             gap: 1rem;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(47, 158, 68, 0.1);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            border-color: rgba(47, 158, 68, 0.2);
         }
 
         .stat-icon {
@@ -129,9 +190,10 @@
 
         .bookings-section {
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
             padding: 2rem;
+            border: 1px solid rgba(47, 158, 68, 0.1);
         }
 
         .section-header {
@@ -157,14 +219,17 @@
 
         .booking-card {
             border: 2px solid #e5e7eb;
-            border-radius: 12px;
+            border-radius: 16px;
             padding: 1.5rem;
             transition: all 0.3s ease;
+            background: #fafafa;
         }
 
         .booking-card:hover {
             border-color: #2F9E44;
-            box-shadow: 0 4px 12px rgba(47, 158, 68, 0.1);
+            box-shadow: 0 6px 20px rgba(47, 158, 68, 0.15);
+            transform: translateY(-2px);
+            background: white;
         }
 
         .booking-header {
@@ -261,9 +326,39 @@
         }
 
         .empty-state i {
-            font-size: 4rem;
+            font-size: 5rem;
             color: #d1d5db;
-            margin-bottom: 1rem;
+            margin-bottom: 1.5rem;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin: 0 0 0.5rem 0;
+            color: #374151;
+        }
+
+        .empty-state p {
+            font-size: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .empty-state a {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.875rem 2rem;
+            background: linear-gradient(135deg, #2F9E44 0%, #41B883 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(47, 158, 68, 0.2);
+        }
+
+        .empty-state a:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(47, 158, 68, 0.3);
         }
 
         .loading-state {
@@ -307,8 +402,16 @@
         <div class="dashboard-header">
             <div class="dashboard-header-content">
                 <div class="user-info">
-                    <h1 id="client-name">Chargement...</h1>
-                    <p id="client-phone">-</p>
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="user-details">
+                        <h1 id="client-name">Chargement...</h1>
+                        <p id="client-phone">
+                            <i class="fas fa-phone"></i>
+                            <span>-</span>
+                        </p>
+                    </div>
                 </div>
                 <div class="header-actions">
                     <a href="index.php" class="btn-logout">
@@ -346,7 +449,7 @@
                     <i class="fas fa-calendar-times"></i>
                     <h3>Aucune réservation</h3>
                     <p>Vous n'avez pas encore effectué de réservation.</p>
-                    <a href="index.php" style="display: inline-block; margin-top: 1rem; padding: 0.75rem 1.5rem; background: #2F9E44; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
+                    <a href="index.php">
                         Réserver un véhicule
                     </a>
                 </div>
@@ -370,8 +473,18 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    document.getElementById('client-name').textContent = `Bonjour, ${data.data.name}`;
-                    document.getElementById('client-phone').textContent = data.data.phone;
+                    // Format client name (capitalize first letter of each word)
+                    const clientName = formatClientName(data.data.name);
+                    document.getElementById('client-name').textContent = `Bonjour, ${clientName}`;
+                    const phoneElement = document.getElementById('client-phone');
+                    if (phoneElement) {
+                        const phoneSpan = phoneElement.querySelector('span');
+                        if (phoneSpan) {
+                            phoneSpan.textContent = data.data.phone || '-';
+                        } else {
+                            phoneElement.innerHTML = `<i class="fas fa-phone"></i> <span>${data.data.phone || '-'}</span>`;
+                        }
+                    }
                 } else {
                     // Not logged in, redirect to login
                     window.location.href = 'client-login.html';
@@ -500,6 +613,15 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        function formatClientName(name) {
+            if (!name) return 'Client';
+            // Capitalize first letter of each word
+            return name.split(' ').map(word => {
+                if (word.length === 0) return word;
+                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+            }).join(' ');
         }
 
         function escapeHtml(text) {

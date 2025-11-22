@@ -134,8 +134,11 @@ class ClientAuth {
                     error_log("Could not update last_login_date: " . $e->getMessage());
                 }
 
+                // Format client name (capitalize first letter of each word)
+                $formattedName = $this->formatClientName($client['name']);
+
                 $_SESSION['client_id'] = $client['id'];
-                $_SESSION['client_name'] = $client['name'];
+                $_SESSION['client_name'] = $formattedName;
                 $_SESSION['client_phone'] = $client['phone'];
                 $_SESSION['client_email'] = $client['email'];
                 $_SESSION['client_logged_in'] = true;
@@ -151,7 +154,7 @@ class ClientAuth {
 
                 return ['success' => true, 'message' => 'Login successful', 'client' => [
                     'id' => $client['id'],
-                    'name' => $client['name'],
+                    'name' => $formattedName,
                     'phone' => $client['phone'],
                     'email' => $client['email']
                 ]];
@@ -188,6 +191,14 @@ class ClientAuth {
         }
     }
 
+    private function formatClientName($name) {
+        if (empty($name)) {
+            return 'Client';
+        }
+        // Capitalize first letter of each word
+        return mb_convert_case($name, MB_CASE_TITLE, 'UTF-8');
+    }
+
     public function getCurrentClient() {
         if ($this->isLoggedIn()) {
             return [
@@ -202,16 +213,32 @@ class ClientAuth {
 
     public function getClientBookings($client_id) {
         try {
+            // Get client info first
+            $clientStmt = $this->db->prepare("SELECT phone, email FROM clients WHERE id = :client_id");
+            $clientStmt->execute([':client_id' => $client_id]);
+            $client = $clientStmt->fetch();
+            
+            if (!$client) {
+                return [];
+            }
+            
+            // Query bookings by client_id (if column exists) OR by phone/email
             $stmt = $this->db->prepare("
                 SELECT b.*, v.name as vehicle_name, v.image_url as vehicle_image 
                 FROM bookings b 
                 LEFT JOIN vehicles v ON b.vehicle_id = v.id 
-                WHERE b.customer_phone = (
-                    SELECT phone FROM clients WHERE id = :client_id
+                WHERE (
+                    b.client_id = :client_id
+                    OR b.customer_phone = :phone
+                    OR b.customer_email = :email
                 )
                 ORDER BY b.created_at DESC
             ");
-            $stmt->execute([':client_id' => $client_id]);
+            $stmt->execute([
+                ':client_id' => $client_id,
+                ':phone' => $client['phone'] ?? '',
+                ':email' => $client['email'] ?? ''
+            ]);
             $bookings = $stmt->fetchAll();
 
             // Log action

@@ -83,6 +83,12 @@ function showSection(section) {
         case 'brands':
             loadBrands();
             break;
+        case 'offers':
+            loadOffers();
+            break;
+        case 'reviews':
+            loadReviews();
+            break;
         case 'clients':
             loadClients();
             break;
@@ -276,8 +282,8 @@ function renderVehicles(vehiclesList) {
                                 </small>
                             </div>
                         ` : ''}
-                        <button class="btn-icon" onclick="toggleVehicleAvailability(${vehicle.id}, ${vehicle.available ? 0 : 1})" 
-                                style="padding: 0.25rem 0.5rem; font-size: 0.75rem; margin-top: 0.25rem;"
+                        <button class="btn-toggle-availability ${vehicle.available ? 'btn-toggle-disable' : 'btn-toggle-enable'}" 
+                                onclick="toggleVehicleAvailability(${vehicle.id}, ${vehicle.available ? 0 : 1})" 
                                 title="${vehicle.available ? 'Marquer comme indisponible' : 'Marquer comme disponible'}">
                             <i class="fas fa-${vehicle.available ? 'ban' : 'check'}"></i>
                             ${vehicle.available ? 'Désactiver' : 'Activer'}
@@ -285,14 +291,13 @@ function renderVehicles(vehiclesList) {
                     </div>
                 </td>
                 <td>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button class="btn-secondary" onclick="editVehicle(${vehicle.id})" 
-                                style="padding: 0.375rem 0.75rem; font-size: 0.8rem;"
+                    <div class="action-buttons">
+                        <button class="btn-action btn-edit-action" onclick="editVehicle(${vehicle.id})" 
                                 title="Modifier">
-                            <i class="fas fa-edit"></i> Modifier
+                            <i class="fas fa-edit"></i>
+                            <span>Modifier</span>
                         </button>
-                        <button class="btn-secondary" onclick="deleteVehicle(${vehicle.id})" 
-                                style="padding: 0.375rem 0.75rem; font-size: 0.8rem; background: var(--danger); color: white;"
+                        <button class="btn-action btn-delete-action" onclick="deleteVehicle(${vehicle.id})" 
                                 title="Supprimer">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -2648,4 +2653,686 @@ window.deleteBrand = deleteBrand;
 window.closeBrandModal = closeBrandModal;
 window.addImageFromURL = addImageFromURL;
 window.removeImageFromGallery = removeImageFromGallery;
+
+// Offers Management Functions
+let offers = [];
+
+async function loadOffers() {
+    try {
+        const response = await fetch('backend.php?action=offers', {
+            credentials: 'same-origin'
+        });
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+            offers = data.data;
+            displayOffers(offers);
+        } else {
+            document.getElementById('offers-tbody').innerHTML = 
+                '<tr><td colspan="10" class="loading">Erreur: ' + (data.error || 'Erreur inconnue') + '</td></tr>';
+        }
+    } catch (error) {
+        console.error('Error loading offers:', error);
+        document.getElementById('offers-tbody').innerHTML = 
+            '<tr><td colspan="10" class="loading">Erreur lors du chargement</td></tr>';
+    }
+}
+
+function displayOffers(offersList) {
+    const tbody = document.getElementById('offers-tbody');
+    if (!tbody) return;
+
+    if (offersList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="loading">Aucune offre trouvée. Cliquez sur "Ajouter une offre" pour en créer une.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = offersList.map(offer => {
+        const statusClass = offer.is_active ? 'status-active' : 'status-cancelled';
+        const statusText = offer.is_active ? 'Active' : 'Inactive';
+        const startDate = new Date(offer.start_date).toLocaleDateString('fr-FR');
+        const endDate = new Date(offer.end_date).toLocaleDateString('fr-FR');
+        
+        let discountDisplay = '';
+        if (offer.offer_type === 'percentage') {
+            discountDisplay = `${offer.discount_value}%`;
+        } else if (offer.offer_type === 'fixed_amount') {
+            discountDisplay = `${offer.discount_value} DH`;
+        } else {
+            discountDisplay = `${offer.discount_value} jours gratuits`;
+        }
+        
+        return `
+            <tr>
+                <td>${offer.id}</td>
+                <td><strong>${escapeHtml(offer.title)}</strong></td>
+                <td><span class="status-badge">${escapeHtml(offer.offer_type)}</span></td>
+                <td><strong style="color: var(--success);">${discountDisplay}</strong></td>
+                <td>${offer.vehicle_name ? escapeHtml(offer.vehicle_name) : '<span style="color: var(--text-secondary);">Tous véhicules</span>'}</td>
+                <td>${startDate}</td>
+                <td>${endDate}</td>
+                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                <td><strong>${offer.sales_count || 0}</strong></td>
+                <td>
+                    <div class="action-buttons">
+                        <button onclick="editOffer(${offer.id})" class="btn-icon" title="Modifier">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="toggleOfferStatus(${offer.id}, ${offer.is_active ? 0 : 1})" 
+                                class="btn-icon" title="${offer.is_active ? 'Désactiver' : 'Activer'}">
+                            <i class="fas fa-${offer.is_active ? 'ban' : 'check'}"></i>
+                        </button>
+                        <button onclick="deleteOffer(${offer.id})" 
+                                class="btn-icon btn-danger" title="Supprimer">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function addOffer() {
+    showOfferModal();
+}
+
+function showOfferModal(offer = null) {
+    const modal = document.getElementById('offer-modal');
+    if (modal) {
+        modal.remove();
+    }
+
+    const modalHTML = `
+        <div id="offer-modal" class="modal show">
+            <div class="modal-overlay" onclick="closeOfferModal()"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title">${offer ? 'Modifier l\'offre' : 'Ajouter une offre'}</h2>
+                    <button class="modal-close" onclick="closeOfferModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="offer-form" class="modal-form">
+                    <div class="form-group">
+                        <label for="offer-title">Titre de l'offre *</label>
+                        <input type="text" id="offer-title" name="title" required 
+                               value="${offer ? escapeHtml(offer.title) : ''}" 
+                               placeholder="Ex: Réduction de 20%">
+                    </div>
+                    <div class="form-group">
+                        <label for="offer-description">Description</label>
+                        <textarea id="offer-description" name="description" rows="3" 
+                                  placeholder="Description détaillée de l'offre">${offer ? escapeHtml(offer.description || '') : ''}</textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="offer-type">Type d'offre *</label>
+                            <select id="offer-type" name="offer_type" required>
+                                <option value="">Sélectionner...</option>
+                                <option value="percentage" ${offer && offer.offer_type === 'percentage' ? 'selected' : ''}>Pourcentage (%)</option>
+                                <option value="fixed_amount" ${offer && offer.offer_type === 'fixed_amount' ? 'selected' : ''}>Montant fixe (DH)</option>
+                                <option value="free_days" ${offer && offer.offer_type === 'free_days' ? 'selected' : ''}>Jours gratuits</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="offer-discount">Valeur de la réduction *</label>
+                            <input type="number" id="offer-discount" name="discount_value" required 
+                                   step="0.01" min="0" 
+                                   value="${offer ? offer.discount_value : ''}" 
+                                   placeholder="Ex: 20">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="offer-vehicle">Véhicule (optionnel)</label>
+                        <select id="offer-vehicle" name="vehicle_id">
+                            <option value="">Tous les véhicules</option>
+                        </select>
+                        <small style="color: #6b7280;">Laisser vide pour appliquer à tous les véhicules</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="offer-image">Image de l'offre (optionnel)</label>
+                        <div style="display: flex; gap: 1rem; align-items: flex-start;">
+                            <div style="flex: 1;">
+                                <input type="url" id="offer-image" name="image_url" 
+                                       value="${offer ? (offer.image_url || '') : ''}" 
+                                       placeholder="https://example.com/image.jpg ou choisir un fichier">
+                                <small style="color: #6b7280; display: block; margin-top: 0.5rem;">URL de l'image ou choisir un fichier ci-dessous</small>
+                            </div>
+                            <div>
+                                <label for="offer-image-file" class="btn-secondary" style="cursor: pointer; padding: 0.5rem 1rem; display: inline-block; margin: 0;">
+                                    <i class="fas fa-folder-open"></i> Parcourir
+                                </label>
+                                <input type="file" id="offer-image-file" name="image_file" accept="image/*" style="display: none;">
+                            </div>
+                        </div>
+                        <div id="offer-image-preview" style="margin-top: 1rem; ${offer && offer.image_url ? '' : 'display: none;'}">
+                            <img id="offer-image-preview-img" src="${offer && offer.image_url ? offer.image_url : ''}" 
+                                 alt="Aperçu" style="max-width: 200px; max-height: 150px; border-radius: 8px; border: 2px solid #e5e7eb; object-fit: cover;">
+                            <button type="button" id="offer-image-remove" class="btn-text" style="margin-left: 0.5rem; color: #ef4444;">
+                                <i class="fas fa-times"></i> Supprimer
+                            </button>
+                        </div>
+                        <small style="color: #6b7280; display: block; margin-top: 0.5rem;">Si vide, l'image du véhicule sera utilisée.</small>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="offer-start-date">Date de début *</label>
+                            <input type="date" id="offer-start-date" name="start_date" required 
+                                   value="${offer ? offer.start_date : ''}">
+                        </div>
+                        <div class="form-group">
+                            <label for="offer-end-date">Date de fin *</label>
+                            <input type="date" id="offer-end-date" name="end_date" required 
+                                   value="${offer ? offer.end_date : ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="offer-max-uses">Utilisations maximales (optionnel)</label>
+                            <input type="number" id="offer-max-uses" name="max_uses" min="1" 
+                                   value="${offer && offer.max_uses ? offer.max_uses : ''}" 
+                                   placeholder="Illimité si vide">
+                            <small style="color: #6b7280;">Nombre maximum de fois que l'offre peut être utilisée</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="offer-active" name="is_active" ${offer ? (offer.is_active ? 'checked' : '') : 'checked'}>
+                                <span>Offre active</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" onclick="closeOfferModal()">Annuler</button>
+                        <button type="submit" class="btn-primary">
+                            <span class="btn-text">${offer ? 'Enregistrer' : 'Créer'}</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    const form = document.getElementById('offer-form');
+    form.dataset.mode = offer ? 'edit' : 'add';
+    if (offer) {
+        form.dataset.offerId = offer.id;
+    }
+
+    form.addEventListener('submit', handleOfferSubmit);
+    
+    // Setup image file upload
+    const imageFileInput = document.getElementById('offer-image-file');
+    const imageUrlInput = document.getElementById('offer-image');
+    const imagePreview = document.getElementById('offer-image-preview');
+    const imagePreviewImg = document.getElementById('offer-image-preview-img');
+    const imageRemoveBtn = document.getElementById('offer-image-remove');
+    
+    if (imageFileInput) {
+        imageFileInput.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                // Validate file type
+                if (!file.type.startsWith('image/')) {
+                    showToast('Veuillez sélectionner un fichier image', 'error');
+                    e.target.value = '';
+                    return;
+                }
+                
+                // Validate file size (5MB max)
+                if (file.size > 5 * 1024 * 1024) {
+                    showToast('Le fichier est trop volumineux (max 5MB)', 'error');
+                    e.target.value = '';
+                    return;
+                }
+                
+                // Upload image
+                const formData = new FormData();
+                formData.append('image', file);
+                
+                try {
+                    const response = await fetch('upload_image.php', {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'same-origin'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success && result.image_url) {
+                        imageUrlInput.value = result.image_url;
+                        imagePreviewImg.src = result.image_url;
+                        imagePreview.style.display = 'block';
+                        showToast('Image uploadée avec succès', 'success');
+                    } else {
+                        showToast(result.error || 'Erreur lors de l\'upload', 'error');
+                        e.target.value = '';
+                    }
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    showToast('Erreur de connexion lors de l\'upload', 'error');
+                    e.target.value = '';
+                }
+            }
+        });
+    }
+    
+    // Update preview when URL changes
+    if (imageUrlInput) {
+        imageUrlInput.addEventListener('input', function() {
+            if (this.value) {
+                imagePreviewImg.src = this.value;
+                imagePreview.style.display = 'block';
+            } else {
+                imagePreview.style.display = 'none';
+            }
+        });
+    }
+    
+    // Remove image
+    if (imageRemoveBtn) {
+        imageRemoveBtn.addEventListener('click', function() {
+            imageUrlInput.value = '';
+            imageFileInput.value = '';
+            imagePreview.style.display = 'none';
+        });
+    }
+    
+    // Load vehicles for dropdown after modal is inserted
+    loadVehiclesForOffer().then(() => {
+        // Set vehicle if editing - wait for vehicles to load first
+        if (offer) {
+            const vehicleSelect = document.getElementById('offer-vehicle');
+            if (vehicleSelect) {
+                if (offer.vehicle_id) {
+                    vehicleSelect.value = String(offer.vehicle_id);
+                } else {
+                    vehicleSelect.value = ''; // Set to "Tous les véhicules"
+                }
+            }
+            // Show preview if offer has image
+            if (offer.image_url) {
+                imagePreviewImg.src = offer.image_url;
+                imagePreview.style.display = 'block';
+            }
+        }
+    });
+}
+
+async function loadVehiclesForOffer() {
+    try {
+        const response = await fetch('backend.php?action=vehicles', {
+            credentials: 'same-origin'
+        });
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+            const vehiclesList = data.data;
+            const select = document.getElementById('offer-vehicle');
+            if (select) {
+                const currentValue = select.value; // Save current selection
+                select.innerHTML = '<option value="">Tous les véhicules</option>' + 
+                    vehiclesList.map(v => `<option value="${v.id}">${escapeHtml(v.name)}</option>`).join('');
+                // Restore selection if it was set
+                if (currentValue) {
+                    select.value = currentValue;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error loading vehicles for offer:', error);
+    }
+}
+
+function closeOfferModal() {
+    const modal = document.getElementById('offer-modal');
+    if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+async function handleOfferSubmit(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const mode = form.dataset.mode;
+    const offerId = form.dataset.offerId;
+
+    const data = {
+        title: document.getElementById('offer-title').value.trim(),
+        description: document.getElementById('offer-description').value.trim() || null,
+        offer_type: document.getElementById('offer-type').value,
+        discount_value: parseFloat(document.getElementById('offer-discount').value),
+        vehicle_id: document.getElementById('offer-vehicle').value ? parseInt(document.getElementById('offer-vehicle').value) : null,
+        image_url: document.getElementById('offer-image').value.trim() || null,
+        start_date: document.getElementById('offer-start-date').value,
+        end_date: document.getElementById('offer-end-date').value,
+        max_uses: document.getElementById('offer-max-uses').value || null,
+        is_active: document.getElementById('offer-active').checked ? 1 : 0
+    };
+
+    if (!data.title || !data.offer_type || !data.discount_value || !data.start_date || !data.end_date) {
+        showToast('Veuillez remplir tous les champs obligatoires', 'error');
+        return;
+    }
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    const originalText = submitBtn.querySelector('.btn-text').textContent;
+    submitBtn.querySelector('.btn-text').textContent = 'Traitement...';
+
+    try {
+        let response;
+        if (mode === 'edit' && offerId) {
+            response = await fetch(`backend.php?action=offers/${offerId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(data)
+            });
+        } else {
+            response = await fetch('backend.php?action=offers', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(data)
+            });
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(mode === 'edit' ? 'Offre modifiée avec succès' : 'Offre créée avec succès', 'success');
+            closeOfferModal();
+            setTimeout(() => {
+                loadOffers();
+            }, 500);
+        } else {
+            showToast(result.error || 'Erreur lors de l\'enregistrement', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving offer:', error);
+        showToast('Erreur lors de l\'enregistrement', 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.querySelector('.btn-text').textContent = originalText;
+    }
+}
+
+function editOffer(id) {
+    const offer = offers.find(o => o.id == id);
+    if (offer) {
+        showOfferModal(offer);
+    } else {
+        showToast('Offre non trouvée', 'error');
+    }
+}
+
+async function toggleOfferStatus(id, newStatus) {
+    try {
+        const response = await fetch(`backend.php?action=offers/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                is_active: newStatus
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(`Offre ${newStatus ? 'activée' : 'désactivée'} avec succès`, 'success');
+            loadOffers();
+        } else {
+            showToast(result.error || 'Erreur lors de la mise à jour', 'error');
+        }
+    } catch (error) {
+        console.error('Error toggling offer status:', error);
+        showToast('Erreur lors de la mise à jour', 'error');
+    }
+}
+
+async function deleteOffer(id) {
+    const offer = offers.find(o => o.id == id);
+    if (!offer) {
+        showToast('Offre non trouvée', 'error');
+        return;
+    }
+
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer l'offre "${offer.title}" ? Cette action est irréversible.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`backend.php?action=offers/${id}`, {
+            method: 'DELETE',
+            credentials: 'same-origin'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('Offre supprimée avec succès', 'success');
+            loadOffers();
+        } else {
+            showToast(result.error || 'Erreur lors de la suppression', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting offer:', error);
+        showToast('Erreur lors de la suppression', 'error');
+    }
+}
+
+// Make functions globally available
+window.addOffer = addOffer;
+window.closeOfferModal = closeOfferModal;
+window.editOffer = editOffer;
+window.toggleOfferStatus = toggleOfferStatus;
+window.deleteOffer = deleteOffer;
+
+// Reviews Management Functions
+let reviews = [];
+let reviewFilter = 'all';
+
+async function loadReviews() {
+    try {
+        const response = await fetch('backend.php?action=reviews&approved=false', {
+            credentials: 'same-origin'
+        });
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+            reviews = data.data;
+            filterReviews(reviewFilter);
+        } else {
+            document.getElementById('reviews-tbody').innerHTML = 
+                '<tr><td colspan="10" class="loading">Erreur: ' + (data.error || 'Erreur inconnue') + '</td></tr>';
+        }
+    } catch (error) {
+        console.error('Error loading reviews:', error);
+        document.getElementById('reviews-tbody').innerHTML = 
+            '<tr><td colspan="10" class="loading">Erreur lors du chargement</td></tr>';
+    }
+}
+
+function filterReviews(filter) {
+    reviewFilter = filter;
+    let filteredReviews = reviews;
+    
+    if (filter === 'approved') {
+        filteredReviews = reviews.filter(r => r.is_approved);
+    } else if (filter === 'pending') {
+        filteredReviews = reviews.filter(r => !r.is_approved);
+    } else if (filter === 'featured') {
+        filteredReviews = reviews.filter(r => r.is_featured);
+    }
+    
+    displayReviews(filteredReviews);
+}
+
+function displayReviews(reviewsList) {
+    const tbody = document.getElementById('reviews-tbody');
+    if (!tbody) return;
+
+    if (reviewsList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="loading">Aucun avis trouvé.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = reviewsList.map(review => {
+        const statusClass = review.is_approved ? 'status-active' : 'status-pending';
+        const statusText = review.is_approved ? 'Approuvé' : 'En attente';
+        const createdDate = new Date(review.created_at).toLocaleDateString('fr-FR');
+        
+        const stars = (rating) => {
+            if (!rating) return '-';
+            return '★'.repeat(rating) + '☆'.repeat(5 - rating);
+        };
+        
+        const commentPreview = review.comment.length > 100 
+            ? review.comment.substring(0, 100) + '...' 
+            : review.comment;
+        
+        return `
+            <tr>
+                <td>${review.id}</td>
+                <td>
+                    <strong>${escapeHtml(review.client_name)}</strong><br>
+                    <small style="color: var(--text-secondary);">${escapeHtml(review.client_email || 'N/A')}</small><br>
+                    <small style="color: var(--text-secondary);">${escapeHtml(review.client_location || '')}</small>
+                </td>
+                <td>${review.vehicle_name ? escapeHtml(review.vehicle_name) : '<span style="color: var(--text-secondary);">Général</span>'}</td>
+                <td><strong style="color: #f59e0b; font-size: 1.1rem;">${stars(review.rating)}</strong></td>
+                <td>${review.service_rating ? stars(review.service_rating) : '-'}</td>
+                <td>${review.car_rating ? stars(review.car_rating) : '-'}</td>
+                <td style="max-width: 300px;">
+                    <div title="${escapeHtml(review.comment)}">${escapeHtml(commentPreview)}</div>
+                </td>
+                <td>
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                    ${review.is_featured ? '<br><small style="color: var(--primary);">⭐ Mis en avant</small>' : ''}
+                </td>
+                <td>${createdDate}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button onclick="toggleReviewApproval(${review.id}, ${review.is_approved ? 0 : 1})" 
+                                class="btn-icon" title="${review.is_approved ? 'Désapprouver' : 'Approuver'}">
+                            <i class="fas fa-${review.is_approved ? 'ban' : 'check'}"></i>
+                        </button>
+                        <button onclick="toggleReviewFeatured(${review.id}, ${review.is_featured ? 0 : 1})" 
+                                class="btn-icon" title="${review.is_featured ? 'Retirer des favoris' : 'Mettre en avant'}">
+                            <i class="fas fa-star" style="color: ${review.is_featured ? '#f59e0b' : '#ddd'}"></i>
+                        </button>
+                        <button onclick="deleteReview(${review.id})" 
+                                class="btn-icon btn-danger" title="Supprimer">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function toggleReviewApproval(id, newStatus) {
+    try {
+        const response = await fetch(`backend.php?action=reviews/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                is_approved: newStatus
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(`Avis ${newStatus ? 'approuvé' : 'désapprouvé'} avec succès`, 'success');
+            loadReviews();
+        } else {
+            showToast(result.error || 'Erreur lors de la mise à jour', 'error');
+        }
+    } catch (error) {
+        console.error('Error toggling review approval:', error);
+        showToast('Erreur lors de la mise à jour', 'error');
+    }
+}
+
+async function toggleReviewFeatured(id, newStatus) {
+    try {
+        const response = await fetch(`backend.php?action=reviews/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                is_featured: newStatus
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(`Avis ${newStatus ? 'mis en avant' : 'retiré des favoris'} avec succès`, 'success');
+            loadReviews();
+        } else {
+            showToast(result.error || 'Erreur lors de la mise à jour', 'error');
+        }
+    } catch (error) {
+        console.error('Error toggling review featured:', error);
+        showToast('Erreur lors de la mise à jour', 'error');
+    }
+}
+
+async function deleteReview(id) {
+    const review = reviews.find(r => r.id == id);
+    if (!review) {
+        showToast('Avis non trouvé', 'error');
+        return;
+    }
+
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer l'avis de "${review.client_name}" ? Cette action est irréversible.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`backend.php?action=reviews/${id}`, {
+            method: 'DELETE',
+            credentials: 'same-origin'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('Avis supprimé avec succès', 'success');
+            loadReviews();
+        } else {
+            showToast(result.error || 'Erreur lors de la suppression', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting review:', error);
+        showToast('Erreur lors de la suppression', 'error');
+    }
+}
+
+// Make functions globally available
+window.loadReviews = loadReviews;
+window.filterReviews = filterReviews;
+window.toggleReviewApproval = toggleReviewApproval;
+window.toggleReviewFeatured = toggleReviewFeatured;
+window.deleteReview = deleteReview;
 

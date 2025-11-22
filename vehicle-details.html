@@ -75,9 +75,15 @@
               </div>
 
               <div class="vehicle-price-section">
-                <div class="price-main">
-                  <span class="price-amount" id="price-amount"></span>
-                  <span class="price-period">/ jour</span>
+                <div class="price-header">
+                  <div class="price-main">
+                    <span class="price-amount" id="price-amount"></span>
+                    <span class="price-period">/ jour</span>
+                  </div>
+                  <select id="currency-selector-details" class="currency-selector-details" title="Choisir la devise">
+                    <option value="MAD">MAD (DH)</option>
+                    <option value="EUR">EUR (€)</option>
+                  </select>
                 </div>
                 <p class="price-note">Prix final, taxes incluses</p>
               </div>
@@ -212,10 +218,21 @@
     <!-- Error State -->
     <div id="error-state" class="error-container" style="display: none;">
       <div class="error-content">
-        <i class="fas fa-exclamation-triangle"></i>
+        <div class="error-icon-wrapper">
+          <i class="fas fa-car-side"></i>
+        </div>
         <h2>Véhicule non trouvé</h2>
         <p>Le véhicule que vous recherchez n'existe pas ou n'est plus disponible.</p>
-        <a href="index.php" class="btn-primary">Retour à l'accueil</a>
+        <div class="error-actions">
+          <a href="index.php" class="btn-primary">
+            <i class="fas fa-home"></i>
+            Retour à l'accueil
+          </a>
+          <a href="all-vehicles.php" class="btn-secondary">
+            <i class="fas fa-car"></i>
+            Voir tous les véhicules
+          </a>
+        </div>
       </div>
     </div>
   </main>

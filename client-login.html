@@ -418,6 +418,34 @@
     </div>
 
     <script>
+        // Check if user is already logged in
+        async function checkLoginStatus() {
+            try {
+                const formData = new FormData();
+                formData.append('action', 'get_client_info');
+                
+                const response = await fetch('client_auth.php', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    // User is already logged in - redirect to dashboard
+                    window.location.href = 'client-dashboard.html';
+                    return;
+                }
+            } catch (error) {
+                // If error, continue with login page
+                console.error('Error checking login status:', error);
+            }
+        }
+        
+        // Check login status on page load
+        checkLoginStatus();
+        
         // Check if user was redirected after registration
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('registered') === 'true') {

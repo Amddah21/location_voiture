@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const brandParam = urlParams.get('brand');
   
   loadVehicles(brandParam || null);
+  loadReviews();
   setupSearchForm();
   setupBookingModal();
   initBrandCards();
@@ -107,41 +108,23 @@ async function initBrandCards() {
     const totalBrands = brands.length;
     const rotationSpeed = 4; // seconds per logo
     
-    // Render brand cards with auto-changing logos
+    // Render brand cards with clean design
     brandsGrid.innerHTML = brands.map((brand, cardIndex) => {
-      // Create logo slides for auto-change animation - rotate through all brands
-      // Start each card at a different position for staggered effect
-      const allLogos = duplicatedBrands.map((b, logoIndex) => {
-        const imageUrl = getImageUrl(b.logo_url);
-        // Calculate delay so each card starts at different brand
-        const startOffset = (cardIndex * rotationSpeed) % (totalBrands * rotationSpeed);
-        const delay = (logoIndex * rotationSpeed) - startOffset;
-        return `
-          <div class="brand-logo-slide" style="--slide-index: ${logoIndex}; --total-slides: ${duplicatedBrands.length}; animation-delay: ${delay}s;">
-            <img src="${escapeHtml(imageUrl)}" 
-                 alt="${escapeHtml(b.name)}" 
-                 class="brand-logo" 
-                 loading="lazy"
-                 onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'200\\' height=\\'100\\'%3E%3Crect fill=\\'%23f3f4f6\\' width=\\'200\\' height=\\'100\\'/%3E%3Ctext fill=\\'%239ca3af\\' font-family=\\'Arial\\' font-size=\\'12\\' x=\\'50%\\' y=\\'50%\\' text-anchor=\\'middle\\' dy=\\'.3em\\'%3E${encodeURIComponent(b.name)}%3C/text%3E%3C/svg%3E';">
-          </div>
-        `;
-      }).join('');
+      const imageUrl = getImageUrl(brand.logo_url);
+      const placeholderSVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='100'%3E%3Crect fill='%23f3f4f6' width='200' height='100'/%3E%3Ctext fill='%239ca3af' font-family='Arial' font-size='14' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3E${encodeURIComponent(brand.name)}%3C/text%3E%3C/svg%3E`;
       
       return `
       <div class="brand-card" 
            data-brand="${escapeHtml(brand.name)}" 
            data-brand-slug="${brand.name.toLowerCase().replace(/\s+/g, '-')}" 
-           style="--card-delay: ${cardIndex * 0.05}s; 
-                  --card-index: ${cardIndex};
-                  --rotation-speed: ${rotationSpeed}s;
-                  --total-brands: ${totalBrands};
-                  animation-delay: ${cardIndex * 0.05}s, ${1.2 + cardIndex * 0.05}s;"
+           style="--card-delay: ${cardIndex * 0.08}s;"
            title="Cliquez pour voir les voitures ${escapeHtml(brand.name)}">
-        <div class="brand-logo-wrapper brand-logo-carousel">
-          <div class="brand-logo-container">
-            ${allLogos}
-          </div>
-          <div class="brand-logo-shimmer"></div>
+        <div class="brand-logo-wrapper">
+          <img src="${escapeHtml(imageUrl)}" 
+               alt="${escapeHtml(brand.name)}" 
+               class="brand-logo" 
+               loading="lazy"
+               onerror="this.onerror=null; this.src='${placeholderSVG}';">
         </div>
       </div>
     `;
@@ -637,17 +620,57 @@ function openBookingModal(vehicleId, location = '', pickupDate = '', returnDate 
   const modal = document.getElementById('booking-modal');
   const vehicleIdInput = document.getElementById('booking-vehicle-id');
   const locationInput = document.getElementById('booking-location');
-  const pickupInput = document.getElementById('booking-pickup');
-  const returnInput = document.getElementById('booking-return');
+  const pickupDateInput = document.getElementById('booking-pickup-date');
+  const returnDateInput = document.getElementById('booking-return-date');
+  const pickupTimeInput = document.getElementById('booking-pickup-time');
+  const returnTimeInput = document.getElementById('booking-return-time');
+  const pickupHidden = document.getElementById('booking-pickup');
+  const returnHidden = document.getElementById('booking-return');
 
   if (!modal || !vehicleIdInput) return;
 
   vehicleIdInput.value = vehicleId;
-  if (location) locationInput.value = location;
-  if (pickupDate) pickupInput.value = pickupDate + 'T09:00';
-  if (returnDate) returnInput.value = returnDate + 'T17:00';
+  
+  // Set location
+  if (location && locationInput) {
+    locationInput.value = location;
+    const clearBtn = document.getElementById('clear-location');
+    if (clearBtn) clearBtn.style.display = 'flex';
+  }
+  
+  // Parse and set dates
+  if (pickupDate) {
+    const pickup = new Date(pickupDate);
+    selectedPickupDate = pickup;
+    if (pickupDateInput) pickupDateInput.value = formatDateForDisplay(pickup);
+    if (pickupTimeInput) pickupTimeInput.value = '11:00';
+    if (pickupHidden) pickupHidden.value = formatDateTimeLocal(pickup);
+  }
+  
+  if (returnDate) {
+    const returnD = new Date(returnDate);
+    selectedReturnDate = returnD;
+    if (returnDateInput) returnDateInput.value = formatDateForDisplay(returnD);
+    if (returnTimeInput) returnTimeInput.value = '11:00';
+    if (returnHidden) returnHidden.value = formatDateTimeLocal(returnD);
+  }
+  
+  // Update calendar if dates are set
+  if (pickupDate || returnDate) {
+    if (pickupDate) {
+      currentCalendarMonth = new Date(pickupDate);
+    }
+    renderCalendar();
+  }
 
   modal.style.display = 'block';
+  
+  // Show calendar if dates are set
+  const calendarWidget = document.getElementById('calendar-widget');
+  if (calendarWidget && (pickupDate || returnDate)) {
+    calendarWidget.style.display = 'block';
+  }
+  
   calculateBookingTotal();
 }
 
@@ -675,20 +698,345 @@ function setupBookingModal() {
     });
   }
 
-  // Recalculate total when dates change
-  const pickupInput = document.getElementById('booking-pickup');
-  const returnInput = document.getElementById('booking-return');
-  if (pickupInput) pickupInput.addEventListener('change', calculateBookingTotal);
-  if (returnInput) returnInput.addEventListener('change', calculateBookingTotal);
+  // Setup calendar functionality
+  setupBookingCalendar();
+  
+  // Setup location clear button
+  setupLocationClear();
+  
+  // Setup same location checkbox
+  setupSameLocationCheckbox();
+  
+  // Setup date/time inputs
+  setupDateTimeInputs();
+  
+  // Recalculate total when dates/times change
+  const pickupDateInput = document.getElementById('booking-pickup-date');
+  const returnDateInput = document.getElementById('booking-return-date');
+  const pickupTimeInput = document.getElementById('booking-pickup-time');
+  const returnTimeInput = document.getElementById('booking-return-time');
+  
+  if (pickupDateInput) pickupDateInput.addEventListener('change', updateBookingDates);
+  if (returnDateInput) returnDateInput.addEventListener('change', updateBookingDates);
+  if (pickupTimeInput) pickupTimeInput.addEventListener('change', updateBookingDates);
+  if (returnTimeInput) returnTimeInput.addEventListener('change', updateBookingDates);
 }
+
+// Calendar functionality
+let currentCalendarMonth = new Date();
+let selectedPickupDate = null;
+let selectedReturnDate = null;
+
+function setupBookingCalendar() {
+  const pickupDateBtn = document.getElementById('pickup-date-btn');
+  const returnDateBtn = document.getElementById('return-date-btn');
+  const calendarWidget = document.getElementById('calendar-widget');
+  
+  if (pickupDateBtn) {
+    pickupDateBtn.addEventListener('click', () => {
+      calendarWidget.style.display = calendarWidget.style.display === 'none' ? 'block' : 'block';
+      renderCalendar();
+    });
+  }
+  
+  if (returnDateBtn) {
+    returnDateBtn.addEventListener('click', () => {
+      calendarWidget.style.display = calendarWidget.style.display === 'none' ? 'block' : 'block';
+      renderCalendar();
+    });
+  }
+  
+  // Initialize calendar with current month
+  currentCalendarMonth = new Date();
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const month1 = document.getElementById('calendar-month-1');
+  const month2 = document.getElementById('calendar-month-2');
+  
+  if (!month1 || !month2) return;
+  
+  // Render first month (current)
+  const month1Date = new Date(currentCalendarMonth);
+  month1.innerHTML = renderMonth(month1Date, 1);
+  
+  // Render second month (next)
+  const month2Date = new Date(currentCalendarMonth);
+  month2Date.setMonth(month2Date.getMonth() + 1);
+  month2.innerHTML = renderMonth(month2Date, 2);
+  
+  // Attach event listeners
+  attachCalendarListeners();
+  updateCalendarSummary();
+}
+
+function renderMonth(date, monthIndex) {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
+                      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+  
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+  const startingDayOfWeek = firstDay.getDay();
+  
+  let html = `
+    <div class="calendar-header">
+      <button class="calendar-nav-btn" onclick="navigateCalendar(${monthIndex}, -1)">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      <div class="calendar-month-title">${monthNames[month]} ${year}</div>
+      <button class="calendar-nav-btn" onclick="navigateCalendar(${monthIndex}, 1)">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+    <div class="calendar-weekdays">
+      ${dayNames.map(day => `<div class="calendar-weekday">${day}</div>`).join('')}
+    </div>
+    <div class="calendar-days">
+  `;
+  
+  // Empty cells for days before the first day of the month
+  for (let i = 0; i < startingDayOfWeek; i++) {
+    html += '<div class="calendar-day other-month"></div>';
+  }
+  
+  // Days of the month
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  for (let day = 1; day <= daysInMonth; day++) {
+    const currentDate = new Date(year, month, day);
+    const isPast = currentDate < today;
+    const isSelectedStart = selectedPickupDate && isSameDay(currentDate, selectedPickupDate);
+    const isSelectedEnd = selectedReturnDate && isSameDay(currentDate, selectedReturnDate);
+    const isInRange = selectedPickupDate && selectedReturnDate && 
+                      currentDate > selectedPickupDate && currentDate < selectedReturnDate;
+    
+    let classes = 'calendar-day';
+    if (isPast) classes += ' disabled';
+    if (isSelectedStart) classes += ' selected-start';
+    if (isSelectedEnd) classes += ' selected-end';
+    if (isInRange) classes += ' in-range';
+    
+    html += `<div class="${classes}" data-date="${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}" data-month="${monthIndex}">${day}</div>`;
+  }
+  
+  html += '</div>';
+  return html;
+}
+
+function navigateCalendar(monthIndex, direction) {
+  if (monthIndex === 1) {
+    currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() + direction);
+  } else {
+    const nextMonth = new Date(currentCalendarMonth);
+    nextMonth.setMonth(nextMonth.getMonth() + 1 + direction);
+    if (direction === -1) {
+      currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() + direction);
+    } else {
+      currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() + direction);
+    }
+  }
+  renderCalendar();
+}
+
+function attachCalendarListeners() {
+  const days = document.querySelectorAll('.calendar-day:not(.disabled):not(.other-month)');
+  days.forEach(day => {
+    day.addEventListener('click', () => {
+      const dateStr = day.getAttribute('data-date');
+      if (!dateStr) return;
+      
+      const [year, month, dayNum] = dateStr.split('-').map(Number);
+      const clickedDate = new Date(year, month - 1, dayNum);
+      
+      if (!selectedPickupDate || (selectedPickupDate && selectedReturnDate)) {
+        // Start new selection
+        selectedPickupDate = clickedDate;
+        selectedReturnDate = null;
+      } else if (selectedPickupDate && !selectedReturnDate) {
+        // Select return date
+        if (clickedDate <= selectedPickupDate) {
+          // If clicked date is before pickup, make it the new pickup
+          selectedReturnDate = selectedPickupDate;
+          selectedPickupDate = clickedDate;
+        } else {
+          selectedReturnDate = clickedDate;
+        }
+      }
+      
+      updateDateInputs();
+      renderCalendar();
+      updateBookingDates();
+    });
+  });
+}
+
+function isSameDay(date1, date2) {
+  return date1.getFullYear() === date2.getFullYear() &&
+         date1.getMonth() === date2.getMonth() &&
+         date1.getDate() === date2.getDate();
+}
+
+function updateDateInputs() {
+  const pickupDateInput = document.getElementById('booking-pickup-date');
+  const returnDateInput = document.getElementById('booking-return-date');
+  
+  if (pickupDateInput && selectedPickupDate) {
+    pickupDateInput.value = formatDateForDisplay(selectedPickupDate);
+  }
+  
+  if (returnDateInput && selectedReturnDate) {
+    returnDateInput.value = formatDateForDisplay(selectedReturnDate);
+  }
+}
+
+function formatDateForDisplay(date) {
+  const days = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
+  const months = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 
+                  'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]}`;
+}
+
+function updateCalendarSummary() {
+  const summary = document.getElementById('calendar-summary');
+  if (!summary) return;
+  
+  if (selectedPickupDate && selectedReturnDate) {
+    const days = Math.ceil((selectedReturnDate - selectedPickupDate) / (1000 * 60 * 60 * 24));
+    const pickupStr = formatDateForDisplay(selectedPickupDate);
+    const returnStr = formatDateForDisplay(selectedReturnDate);
+    summary.textContent = `${pickupStr} – ${returnStr} (${days} jour${days !== 1 ? 's' : ''})`;
+  } else if (selectedPickupDate) {
+    summary.textContent = `Sélectionnez la date de retour`;
+  } else {
+    summary.textContent = `Sélectionnez les dates de location`;
+  }
+}
+
+function setupLocationClear() {
+  const locationInput = document.getElementById('booking-location');
+  const clearBtn = document.getElementById('clear-location');
+  
+  if (locationInput && clearBtn) {
+    locationInput.addEventListener('input', () => {
+      clearBtn.style.display = locationInput.value ? 'flex' : 'none';
+    });
+    
+    clearBtn.addEventListener('click', () => {
+      locationInput.value = '';
+      clearBtn.style.display = 'none';
+    });
+  }
+}
+
+function setupSameLocationCheckbox() {
+  const sameLocationCheckbox = document.getElementById('same-location');
+  const returnLocationInput = document.getElementById('return-location');
+  
+  if (sameLocationCheckbox) {
+    sameLocationCheckbox.addEventListener('change', (e) => {
+      // If checkbox is checked, hide return location (if exists)
+      // For now, we'll just handle the checkbox state
+    });
+  }
+}
+
+function setupDateTimeInputs() {
+  const pickupDateInput = document.getElementById('booking-pickup-date');
+  const returnDateInput = document.getElementById('booking-return-date');
+  
+  if (pickupDateInput) {
+    pickupDateInput.addEventListener('click', () => {
+      document.getElementById('calendar-widget').style.display = 'block';
+      renderCalendar();
+    });
+  }
+  
+  if (returnDateInput) {
+    returnDateInput.addEventListener('click', () => {
+      document.getElementById('calendar-widget').style.display = 'block';
+      renderCalendar();
+    });
+  }
+}
+
+function updateBookingDates() {
+  // Update hidden datetime-local inputs for form submission
+  const pickupDateInput = document.getElementById('booking-pickup-date');
+  const returnDateInput = document.getElementById('booking-return-date');
+  const pickupTimeInput = document.getElementById('booking-pickup-time');
+  const returnTimeInput = document.getElementById('booking-return-time');
+  const pickupHidden = document.getElementById('booking-pickup');
+  const returnHidden = document.getElementById('booking-return');
+  
+  if (selectedPickupDate && pickupTimeInput && pickupHidden) {
+    const [hours, minutes] = pickupTimeInput.value.split(':');
+    selectedPickupDate.setHours(parseInt(hours), parseInt(minutes));
+    pickupHidden.value = formatDateTimeLocal(selectedPickupDate);
+  }
+  
+  if (selectedReturnDate && returnTimeInput && returnHidden) {
+    const [hours, minutes] = returnTimeInput.value.split(':');
+    selectedReturnDate.setHours(parseInt(hours), parseInt(minutes));
+    returnHidden.value = formatDateTimeLocal(selectedReturnDate);
+  }
+  
+  calculateBookingTotal();
+}
+
+function formatDateTimeLocal(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+// Make navigateCalendar available globally
+window.navigateCalendar = navigateCalendar;
 
 async function calculateBookingTotal() {
   const vehicleId = document.getElementById('booking-vehicle-id').value;
-  const pickupInput = document.getElementById('booking-pickup');
-  const returnInput = document.getElementById('booking-return');
+  const pickupHidden = document.getElementById('booking-pickup');
+  const returnHidden = document.getElementById('booking-return');
   const totalDiv = document.getElementById('booking-total');
 
-  if (!vehicleId || !pickupInput || !returnInput || !totalDiv) return;
+  if (!vehicleId || !totalDiv) return;
+
+  // Use selected dates if available, otherwise use hidden inputs
+  let pickup, returnDate;
+  
+  if (selectedPickupDate && selectedReturnDate) {
+    pickup = new Date(selectedPickupDate);
+    returnDate = new Date(selectedReturnDate);
+    const pickupTimeInput = document.getElementById('booking-pickup-time');
+    const returnTimeInput = document.getElementById('booking-return-time');
+    if (pickupTimeInput) {
+      const [hours, minutes] = pickupTimeInput.value.split(':');
+      pickup.setHours(parseInt(hours), parseInt(minutes));
+    }
+    if (returnTimeInput) {
+      const [hours, minutes] = returnTimeInput.value.split(':');
+      returnDate.setHours(parseInt(hours), parseInt(minutes));
+    }
+  } else if (pickupHidden && returnHidden && pickupHidden.value && returnHidden.value) {
+    pickup = new Date(pickupHidden.value);
+    returnDate = new Date(returnHidden.value);
+  } else {
+    totalDiv.innerHTML = '';
+    return;
+  }
+
+  if (!pickup || !returnDate || returnDate <= pickup) {
+    totalDiv.innerHTML = '';
+    return;
+  }
 
   try {
     const response = await fetch(`${API_BASE}?action=vehicles&id=${vehicleId}`);
@@ -696,16 +1044,9 @@ async function calculateBookingTotal() {
 
     if (result.success && result.data) {
       const vehicle = result.data;
-      const pickup = new Date(pickupInput.value);
-      const returnDate = new Date(returnInput.value);
-      
-      if (pickup && returnDate && returnDate > pickup) {
-        const days = Math.ceil((returnDate - pickup) / (1000 * 60 * 60 * 24));
-        const total = vehicle.price_per_day * days;
-        totalDiv.innerHTML = `Total : <span style="color: var(--primary);">${formatPriceForDisplay(total)}</span> pour ${days} jour${days !== 1 ? 's' : ''}`;
-      } else {
-        totalDiv.innerHTML = '';
-      }
+      const days = Math.ceil((returnDate - pickup) / (1000 * 60 * 60 * 24));
+      const total = vehicle.price_per_day * days;
+      totalDiv.innerHTML = `Total : <span style="color: var(--primary);">${formatPriceForDisplay(total)}</span> pour ${days} jour${days !== 1 ? 's' : ''}`;
     }
   } catch (error) {
     console.error('Error calculating total:', error);
@@ -728,8 +1069,8 @@ async function submitBooking() {
       customer_phone: document.getElementById('customer-phone').value,
       password: document.getElementById('customer-password').value,
       pickup_location: document.getElementById('booking-location').value,
-      pickup_date: document.getElementById('booking-pickup').value,
-      return_date: document.getElementById('booking-return').value
+      pickup_date: document.getElementById('booking-pickup')?.value || formatDateTimeLocal(selectedPickupDate),
+      return_date: document.getElementById('booking-return')?.value || formatDateTimeLocal(selectedReturnDate)
     };
 
     const response = await fetch(`${API_BASE}?action=bookings`, {
@@ -759,4 +1100,90 @@ async function submitBooking() {
 
 // Make openBookingModal available globally
 window.openBookingModal = openBookingModal;
+
+// Load and display reviews
+async function loadReviews() {
+  const grid = document.getElementById('reviews-grid');
+  if (!grid) return;
+  
+  try {
+    const response = await fetch(`${API_BASE}?action=reviews&approved=true&limit=6`);
+    const result = await response.json();
+    
+    if (result.success && result.data && result.data.length > 0) {
+      displayReviews(result.data);
+    } else {
+      // Show default testimonials if no reviews
+      grid.innerHTML = `
+        <article class="testimonial-card">
+          <div class="testimonial-card__rating">★★★★★</div>
+          <p>"Réserver avec Cars Location voiture est sans effort. La voiture est arrivée impeccable et à l'heure."</p>
+          <div class="testimonial-card__author">
+            <img src="https://images.unsplash.com/photo-1502685104226-ee32379fefbe?auto=format&fit=crop&w=200&q=80" alt="Portrait client" loading="lazy" decoding="async">
+            <div>
+              <strong>Charlie Johnson</strong>
+              <span>New York, USA</span>
+            </div>
+          </div>
+        </article>
+        <article class="testimonial-card">
+          <div class="testimonial-card__rating">★★★★★</div>
+          <p>"Je me suis senti très en sécurité avec Cars Location voiture. Le support était rapide et le chauffeur professionnel."</p>
+          <div class="testimonial-card__author">
+            <img src="https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=200&q=80" alt="Portrait client" loading="lazy" decoding="async">
+            <div>
+              <strong>Sarah Wilson</strong>
+              <span>Toronto, Canada</span>
+            </div>
+          </div>
+        </article>
+        <article class="testimonial-card">
+          <div class="testimonial-card__rating">★★★★☆</div>
+          <p>"Excellent choix de véhicules et l'application rend la gestion des réservations très simple."</p>
+          <div class="testimonial-card__author">
+            <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=200&q=80" alt="Portrait client" loading="lazy" decoding="async">
+            <div>
+              <strong>Emma Reed</strong>
+              <span>Londres, UK</span>
+            </div>
+          </div>
+        </article>
+      `;
+    }
+  } catch (error) {
+    console.error('Error loading reviews:', error);
+    grid.innerHTML = '<p style="text-align: center; padding: 2rem; color: #6b7280;">Erreur lors du chargement des avis.</p>';
+  }
+}
+
+function displayReviews(reviews) {
+  const grid = document.getElementById('reviews-grid');
+  if (!grid) return;
+
+  grid.innerHTML = reviews.map(review => {
+    const stars = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
+    const name = escapeHtml(review.client_name);
+    const location = review.client_location ? escapeHtml(review.client_location) : 'Client';
+    const comment = escapeHtml(review.comment);
+    
+    // Generate avatar based on name (simple hash)
+    const avatarIndex = review.id % 10;
+    const avatarUrl = `https://images.unsplash.com/photo-${1502685104226 + avatarIndex}?auto=format&fit=crop&w=200&q=80`;
+    
+    return `
+      <article class="testimonial-card">
+        <div class="testimonial-card__rating">${stars}</div>
+        <p>"${comment}"</p>
+        <div class="testimonial-card__author">
+          <img src="${avatarUrl}" alt="${name}" loading="lazy" decoding="async" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=10b981&color=fff&size=200'">
+          <div>
+            <strong>${name}</strong>
+            <span>${location}</span>
+            ${review.vehicle_name ? `<small style="color: #9ca3af; font-size: 0.85rem; display: block; margin-top: 0.25rem;">${escapeHtml(review.vehicle_name)}</small>` : ''}
+          </div>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
 

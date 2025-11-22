@@ -37,8 +37,15 @@ async function loadVehicleDetails() {
   }
 }
 
+// Store current vehicle data globally for currency updates
+let currentVehicleData = null;
+let similarVehiclesData = [];
+
 // Display vehicle details
 function displayVehicleDetails(vehicle) {
+  // Store vehicle data for currency updates
+  currentVehicleData = vehicle;
+  
   // Hide loading, show content
   document.getElementById('loading-state').style.display = 'none';
   document.getElementById('vehicle-details').style.display = 'block';
@@ -96,14 +103,8 @@ function displayVehicleDetails(vehicle) {
   document.getElementById('rating-value').textContent = rating.toFixed(1);
   document.getElementById('review-count').textContent = `(${formatNumber(vehicle.review_count || 0)} avis)`;
 
-  // Price
-  const price = parseFloat(vehicle.price_per_day || 0);
-  const priceFormatted = formatPrice(price);
-  document.getElementById('price-amount').textContent = priceFormatted;
-  const summaryPriceDay = document.getElementById('summary-price-day');
-  if (summaryPriceDay) {
-    summaryPriceDay.textContent = priceFormatted;
-  }
+  // Update prices
+  updateVehiclePrices(vehicle);
 
   // Availability
   const availabilityBadge = document.getElementById('availability-badge');
@@ -221,18 +222,24 @@ async function loadSimilarVehicles(type, excludeId) {
 
 // Display similar vehicles
 function displaySimilarVehicles(vehicles) {
+  similarVehiclesData = vehicles;
+  updateSimilarVehiclesDisplay();
+}
+
+// Update similar vehicles display with current currency
+function updateSimilarVehiclesDisplay() {
   const grid = document.getElementById('similar-vehicles-grid');
   
-  if (vehicles.length === 0) {
+  if (similarVehiclesData.length === 0) {
     grid.innerHTML = '<p style="text-align: center; color: #6b7280; grid-column: 1 / -1;">Aucun véhicule similaire disponible.</p>';
     return;
   }
 
-  grid.innerHTML = vehicles.map(vehicle => {
+  grid.innerHTML = similarVehiclesData.map(vehicle => {
     const placeholderVehicleSVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgNDAwIDIwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmM2Y0ZjYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjOWNhM2FmIj5JbWFnZSBub24gZGlzcG9uaWJsZTwvdGV4dD48L3N2Zz4=';
     const imageUrl = vehicle.image_url || placeholderVehicleSVG;
     const rating = parseFloat(vehicle.rating || 4.5).toFixed(1);
-    const price = parseFloat(vehicle.price_per_day || 0).toFixed(2);
+    const price = parseFloat(vehicle.price_per_day || 0);
     
     return `
       <article class="vehicle-card">
@@ -258,6 +265,27 @@ function displaySimilarVehicles(vehicles) {
       </article>
     `;
   }).join('');
+}
+
+// Update vehicle prices with current currency
+function updateVehiclePrices(vehicle) {
+  if (!vehicle) vehicle = currentVehicleData;
+  if (!vehicle) return;
+  
+  const price = parseFloat(vehicle.price_per_day || 0);
+  const priceFormatted = formatPrice(price);
+  
+  const priceAmount = document.getElementById('price-amount');
+  const summaryPriceDay = document.getElementById('summary-price-day');
+  
+  if (priceAmount) {
+    priceAmount.textContent = priceFormatted;
+  }
+  if (summaryPriceDay) {
+    summaryPriceDay.textContent = priceFormatted;
+    // Recalculate booking total if dates are set
+    calculateBookingTotal();
+  }
 }
 
 // Show error state
@@ -529,6 +557,23 @@ function setupBookingForm() {
 document.addEventListener('DOMContentLoaded', () => {
   loadVehicleDetails();
   setupBookingForm();
+  
+  // Initialize currency selector
+  if (typeof initCurrencySelector === 'function') {
+    initCurrencySelector();
+  }
+  
+  // Listen for currency changes
+  window.addEventListener('currencyChanged', () => {
+    // Update main vehicle price
+    if (currentVehicleData) {
+      updateVehiclePrices(currentVehicleData);
+    }
+    // Update similar vehicles prices
+    if (similarVehiclesData.length > 0) {
+      updateSimilarVehiclesDisplay();
+    }
+  });
   
   // Keyboard navigation for image gallery
   document.addEventListener('keydown', (e) => {
